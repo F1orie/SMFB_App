@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../application/dummy_sleep_data_service.dart';
+import '../application/sleep_recorder_service.dart';
+
 const _alarmMinuteGranularity = 5;
 
-/// 参考 UI に近いアラーム設定画面（見た目のみ。計測・通知は未実装）。
+/// 参考 UI に近いアラーム設定画面
 class AlarmPage extends StatefulWidget {
   const AlarmPage({super.key});
 
-  /// 背景（参考スクリーンショットに近いペールブルーグレー）
   static const backgroundColor = Color(0xFFE6E9EF);
-
-  /// START ボタン
   static const startButtonColor = Color(0xFF6DBB81);
-
-  /// 時刻ピッカー枠（ネイビー系）
   static const pickerBorderColor = Color(0xFF1C2B45);
 
   @override
@@ -21,11 +19,17 @@ class AlarmPage extends StatefulWidget {
 
 class _AlarmPageState extends State<AlarmPage> {
   static const _itemExtent = 40.0;
+
   late final FixedExtentScrollController _hourCtrl;
   late final FixedExtentScrollController _minuteCtrl;
 
+  final SleepRecorderService _recorderService = SleepRecorderService();
+  final DummySleepDataService _dummySleepDataService = DummySleepDataService();
+
+  String? _lastDummySessionId;
+
   int _hour = 7;
-  int _minute = 15; // 5 分刻み
+  int _minute = 15;
 
   @override
   void initState() {
@@ -40,6 +44,7 @@ class _AlarmPageState extends State<AlarmPage> {
   void dispose() {
     _hourCtrl.dispose();
     _minuteCtrl.dispose();
+    _recorderService.dispose();
     super.dispose();
   }
 
@@ -57,6 +62,40 @@ class _AlarmPageState extends State<AlarmPage> {
     final h = m ~/ 60;
     final min = m % 60;
     return '$h:${min.toString().padLeft(2, '0')}';
+  }
+
+  void _startRecording() {
+    _recorderService.start();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('睡眠記録を開始しました')),
+    );
+  }
+
+  void _stopRecording() {
+    final result = _recorderService.stop();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result == null ? '記録中のデータがありません' : '睡眠記録を停止しました',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createDummyData() async {
+    final sessionId = await _dummySleepDataService.generateAndSave();
+
+    if (!mounted) return;
+
+    setState(() {
+      _lastDummySessionId = sessionId;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('ダミーデータを保存しました: $sessionId')),
+    );
   }
 
   @override
@@ -86,7 +125,8 @@ class _AlarmPageState extends State<AlarmPage> {
                             hourCtrl: _hourCtrl,
                             minuteCtrl: _minuteCtrl,
                             onHourChanged: (h) => setState(() => _hour = h),
-                            onMinuteChanged: (m) => setState(() => _minute = m),
+                            onMinuteChanged: (m) =>
+                                setState(() => _minute = m),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -120,24 +160,52 @@ class _AlarmPageState extends State<AlarmPage> {
                 ),
               ),
               const SizedBox(height: 16),
+              ValueListenableBuilder<RecorderState>(
+                valueListenable: _recorderService.stateNotifier,
+                builder: (context, state, _) {
+                  final isRecording = state == RecorderState.recording;
+
+                  return SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: isRecording
+                            ? Colors.redAccent
+                            : AlarmPage.startButtonColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      onPressed:
+                          isRecording ? _stopRecording : _startRecording,
+                      child: Text(isRecording ? 'STOP' : 'START'),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AlarmPage.startButtonColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: const StadiumBorder(),
-                    textStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  onPressed: () {},
-                  child: const Text('START'),
+                child: OutlinedButton.icon(
+                  onPressed: _createDummyData,
+                  icon: const Icon(Icons.data_object),
+                  label: const Text('ダミーデータ作成'),
                 ),
               ),
+              if (_lastDummySessionId != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '保存済みセッションID: $_lastDummySessionId',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               const _AdBannerPlaceholder(),
               const SizedBox(height: 8),
@@ -273,9 +341,9 @@ class _WheelColumn extends StatelessWidget {
             child: Text(
               labelBuilder(index),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
             ),
           );
         },
@@ -422,9 +490,10 @@ class _AdBannerPlaceholder extends StatelessWidget {
       ),
       child: Text(
         '広告枠（プレースホルダー）',
-        style: Theme.of(
-          context,
-        ).textTheme.labelMedium?.copyWith(color: Colors.grey.shade700),
+        style: Theme.of(context)
+            .textTheme
+            .labelMedium
+            ?.copyWith(color: Colors.grey.shade700),
       ),
     );
   }
