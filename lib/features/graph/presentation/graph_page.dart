@@ -15,6 +15,8 @@ class GraphPage extends StatefulWidget {
 class _GraphPageState extends State<GraphPage> {
   DateTime _selectedDate = DateTime(2026, 4, 21);
 
+  final Map<String, Set<String>> _selectedActionsByDate = {};
+
   static const _kBackground = Color(0xFF071C35);
 
   DailySleepDepthMock get _mock {
@@ -122,7 +124,10 @@ class _GraphPageState extends State<GraphPage> {
                         children: [
                           _DataTab(summary: summary),
                           _MemoTab(memo: _mock.memo),
-                          _ActionTab(selectedDate: _selectedDate),
+                          _ActionTab(
+                            selectedDate: _selectedDate,
+                            selectedActionsByDate: _selectedActionsByDate,
+                          ),
                         ],
                       ),
                     ),
@@ -423,17 +428,19 @@ class _MemoTab extends StatelessWidget {
 }
 
 class _ActionTab extends StatefulWidget {
-  const _ActionTab({required this.selectedDate});
+  const _ActionTab({
+    required this.selectedDate,
+    required this.selectedActionsByDate,
+  });
 
   final DateTime selectedDate;
+  final Map<String, Set<String>> selectedActionsByDate;
 
   @override
   State<_ActionTab> createState() => _ActionTabState();
 }
 
 class _ActionTabState extends State<_ActionTab> {
-  final Map<String, Set<String>> _selectedActionsByDate = {};
-
   final List<String> _actions = const [
     'アルコール',
     'カフェイン',
@@ -451,7 +458,7 @@ class _ActionTabState extends State<_ActionTab> {
   void _toggleAction(String action) {
     setState(() {
       final selectedActions =
-          _selectedActionsByDate.putIfAbsent(_dateKey, () => <String>{});
+          widget.selectedActionsByDate.putIfAbsent(_dateKey, () => <String>{});
       if (selectedActions.contains(action)) {
         selectedActions.remove(action);
       } else {
@@ -462,7 +469,8 @@ class _ActionTabState extends State<_ActionTab> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedActions = _selectedActionsByDate[_dateKey] ?? <String>{};
+    final selectedActions =
+        widget.selectedActionsByDate[_dateKey] ?? <String>{};
 
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
