@@ -1,31 +1,32 @@
 import 'dart:math';
 
-/// グラフ機能（睡眠記録閲覧）用のダミーデータ。
-///
-/// ユーザー要望に従い、`lib/features/graph/` の直下に置きます。
-/// （Android で実測したデータ連携は未実装。UI 表現のための固定モックのみ。）
+/// グラフ機能（睡眠記録閲覧）用のモックデータ。
 class SleepDepthPoint {
-  const SleepDepthPoint({required this.minuteFromZero, required this.depth01});
+  const SleepDepthPoint({
+    required this.minuteFromZero,
+    required this.depth01,
+  });
 
-  /// グラフ基準（例: 0時）からの経過分
+  /// グラフ基準からの経過分
   final int minuteFromZero;
 
-  /// 0.0〜1.0 の正規化深さ（深いほど 1.0）
+  /// 0.0〜1.0 の睡眠の深さ
+  /// 0に近いほど浅く、1に近いほど深い
   final double depth01;
 }
 
 class SleepSummaryMock {
   const SleepSummaryMock({
-    required this.bedtimeLabel, // 就寝時刻
-    required this.fallAsleepLabel, // 入眠時刻
-    required this.wakeUpLabel, // 起床時刻
-    required this.sleepDurationLabel, // 睡眠時間
-    required this.latencyLabel, // 入眠潜時（任意）
-    required this.awakeningCountLabel, // 中途覚醒回数
-    required this.awakeningTimeLabel, // 覚醒時間（任意）
-    required this.efficiencyLabel, // 睡眠効率
-    required this.deepTimeLabel, // 深睡眠時間（任意）
-    required this.lightTimeLabel, // 浅睡眠時間（任意）
+    required this.bedtimeLabel,
+    required this.fallAsleepLabel,
+    required this.wakeUpLabel,
+    required this.sleepDurationLabel,
+    required this.latencyLabel,
+    required this.awakeningCountLabel,
+    required this.awakeningTimeLabel,
+    required this.efficiencyLabel,
+    required this.deepTimeLabel,
+    required this.lightTimeLabel,
   });
 
   final String bedtimeLabel;
@@ -47,25 +48,24 @@ class DailySleepDepthMock {
     required this.xTickEndHour,
     required this.points,
     required this.summary,
+    required this.memo,
   });
 
-  /// 例：「8月9日（木） - 10日（金）」
   final String rangeLabel;
-
-  /// x 軸（時刻）表示の範囲
   final int xTickStartHour;
   final int xTickEndHour;
-
-  /// 1日分の深さ推移（例：0〜7時を 5分刻み）
   final List<SleepDepthPoint> points;
-
-  /// 下部「データ」タブの表示用集計モック
   final SleepSummaryMock summary;
+  final String memo;
 }
 
-double _clamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
+double _clamp01(double v) {
+  if (v < 0) return 0;
+  if (v > 1) return 1;
+  return v;
+}
 
-/// スクリーンショットに近い雰囲気の曲線を作る固定モック。
+/// 1日分の睡眠グラフ用モックデータ
 DailySleepDepthMock buildMockDailySleepDepth() {
   const startHour = 0;
   const endHour = 7;
@@ -75,37 +75,130 @@ DailySleepDepthMock buildMockDailySleepDepth() {
   final points = <SleepDepthPoint>[];
 
   for (var m = 0; m <= totalMinutes; m += stepMinutes) {
-    final t = m / totalMinutes; // 0..1
+    final t = m / totalMinutes;
 
-    // 浅→深→浅→深→浅のように「それっぽい遷移」になる波形を簡単に合成
     final base =
-        0.55 +
-        0.35 * sin(t * pi) +
-        0.10 * sin(t * pi * 2 + 0.7) -
-        0.08 * sin(t * pi * 3 + 1.4);
+        0.45 +
+        0.30 * sin(t * pi) +
+        0.18 * sin(t * pi * 4 + 0.8) -
+        0.08 * sin(t * pi * 7);
 
-    final wobble = 0.02 * sin(m / 18.0);
-    final depth01 = _clamp01(base + wobble);
+    final depth01 = _clamp01(base);
 
-    points.add(SleepDepthPoint(minuteFromZero: m, depth01: depth01));
+    points.add(
+      SleepDepthPoint(
+        minuteFromZero: m,
+        depth01: depth01,
+      ),
+    );
   }
 
   return DailySleepDepthMock(
-    rangeLabel: '8月9日（木） - 10日（金）',
+    rangeLabel: '4月21日（月） - 22日（火）',
     xTickStartHour: startHour,
     xTickEndHour: endHour,
     points: points,
     summary: const SleepSummaryMock(
-      bedtimeLabel: '23:58',
-      fallAsleepLabel: '0:09',
-      wakeUpLabel: '7:03',
-      sleepDurationLabel: '7時間5分12秒',
-      latencyLabel: '0分5秒',
-      awakeningCountLabel: '0回',
-      awakeningTimeLabel: '0秒',
-      efficiencyLabel: '96.7%',
-      deepTimeLabel: '約60分',
-      lightTimeLabel: '約240分',
+      bedtimeLabel: '23:45',
+      fallAsleepLabel: '0:10',
+      wakeUpLabel: '7:05',
+      sleepDurationLabel: '6時間55分',
+      latencyLabel: '25分',
+      awakeningCountLabel: '2回',
+      awakeningTimeLabel: '18分',
+      efficiencyLabel: '89%',
+      deepTimeLabel: '1時間35分',
+      lightTimeLabel: '5時間20分',
     ),
+    memo: '夜にカフェインを飲んだため、途中で2回目が覚めた。',
+  );
+}
+
+/// 寝ていない日のモックデータ
+DailySleepDepthMock buildNoSleepMock() {
+  return const DailySleepDepthMock(
+    rangeLabel: '4月22日（火） - 23日（水）',
+    xTickStartHour: 0,
+    xTickEndHour: 7,
+    points: [
+      SleepDepthPoint(minuteFromZero: 0, depth01: 0.02),
+      SleepDepthPoint(minuteFromZero: 60, depth01: 0.01),
+      SleepDepthPoint(minuteFromZero: 120, depth01: 0.02),
+      SleepDepthPoint(minuteFromZero: 180, depth01: 0.01),
+      SleepDepthPoint(minuteFromZero: 240, depth01: 0.02),
+      SleepDepthPoint(minuteFromZero: 300, depth01: 0.01),
+      SleepDepthPoint(minuteFromZero: 360, depth01: 0.02),
+      SleepDepthPoint(minuteFromZero: 420, depth01: 0.01),
+    ],
+    summary: SleepSummaryMock(
+      bedtimeLabel: '--:--',
+      fallAsleepLabel: '--:--',
+      wakeUpLabel: '--:--',
+      sleepDurationLabel: '0時間',
+      latencyLabel: '--',
+      awakeningCountLabel: '0回',
+      awakeningTimeLabel: '0分',
+      efficiencyLabel: '0%',
+      deepTimeLabel: '0分',
+      lightTimeLabel: '0分',
+    ),
+    memo: '徹夜で課題したので寝ていない。',
+  );
+}
+
+/// 昼過ぎまで寝た日のモックデータ
+DailySleepDepthMock buildOversleepMock() {
+  return const DailySleepDepthMock(
+    rangeLabel: '4月23日（水） - 24日（木）',
+    xTickStartHour: 0,
+    xTickEndHour: 14,
+    points: [
+      SleepDepthPoint(minuteFromZero: 0, depth01: 0.20),
+      SleepDepthPoint(minuteFromZero: 60, depth01: 0.55),
+      SleepDepthPoint(minuteFromZero: 120, depth01: 0.85),
+      SleepDepthPoint(minuteFromZero: 180, depth01: 0.60),
+      SleepDepthPoint(minuteFromZero: 240, depth01: 0.90),
+      SleepDepthPoint(minuteFromZero: 360, depth01: 0.65),
+      SleepDepthPoint(minuteFromZero: 480, depth01: 0.75),
+      SleepDepthPoint(minuteFromZero: 600, depth01: 0.45),
+      SleepDepthPoint(minuteFromZero: 720, depth01: 0.30),
+      SleepDepthPoint(minuteFromZero: 840, depth01: 0.10),
+    ],
+    summary: SleepSummaryMock(
+      bedtimeLabel: '1:30',
+      fallAsleepLabel: '2:00',
+      wakeUpLabel: '13:45',
+      sleepDurationLabel: '11時間45分',
+      latencyLabel: '30分',
+      awakeningCountLabel: '1回',
+      awakeningTimeLabel: '12分',
+      efficiencyLabel: '94%',
+      deepTimeLabel: '3時間10分',
+      lightTimeLabel: '8時間35分',
+    ),
+    memo: '休日だったので昼過ぎまで長く寝た。',
+  );
+}
+
+/// データが存在しない日のモック
+DailySleepDepthMock buildEmptyMock(DateTime date) {
+  return DailySleepDepthMock(
+    rangeLabel: '${date.month}月${date.day}日',
+    xTickStartHour: 0,
+    xTickEndHour: 24,
+    points: const [],
+    summary: const SleepSummaryMock(
+      bedtimeLabel: '--',
+      fallAsleepLabel: '--',
+      wakeUpLabel: '--',
+      sleepDurationLabel: 'データなし',
+      latencyLabel: '--',
+      awakeningCountLabel: '--',
+      awakeningTimeLabel: '--',
+      efficiencyLabel: '--',
+      deepTimeLabel: '--',
+      lightTimeLabel: '--',
+    ),
+    memo: '',
   );
 }
