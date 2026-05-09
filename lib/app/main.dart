@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:smf_app/common/navigation/main_tab_index_notifier.dart';
 import 'package:smf_app/common/ui/navigation/app_bottom_navigation_bar.dart';
@@ -16,6 +17,16 @@ class SmfApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
         useMaterial3: true,
       ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ja'),
+        Locale('en'),
+      ],
+      locale: const Locale('ja'),
       home: const MainShell(),
     );
   }
