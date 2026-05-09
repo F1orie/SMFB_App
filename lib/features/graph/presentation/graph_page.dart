@@ -122,7 +122,7 @@ class _GraphPageState extends State<GraphPage> {
                         children: [
                           _DataTab(summary: summary),
                           _MemoTab(memo: _mock.memo),
-                          const _ActionTab(),
+                          _ActionTab(selectedDate: _selectedDate),
                         ],
                       ),
                     ),
@@ -423,14 +423,16 @@ class _MemoTab extends StatelessWidget {
 }
 
 class _ActionTab extends StatefulWidget {
-  const _ActionTab();
+  const _ActionTab({required this.selectedDate});
+
+  final DateTime selectedDate;
 
   @override
   State<_ActionTab> createState() => _ActionTabState();
 }
 
 class _ActionTabState extends State<_ActionTab> {
-  final Set<String> _selectedActions = {};
+  final Map<String, Set<String>> _selectedActionsByDate = {};
 
   final List<String> _actions = const [
     'アルコール',
@@ -441,18 +443,27 @@ class _ActionTabState extends State<_ActionTab> {
     '入浴',
   ];
 
+  String get _dateKey {
+    final date = widget.selectedDate;
+    return '${date.year}-${date.month}-${date.day}';
+  }
+
   void _toggleAction(String action) {
     setState(() {
-      if (_selectedActions.contains(action)) {
-        _selectedActions.remove(action);
+      final selectedActions =
+          _selectedActionsByDate.putIfAbsent(_dateKey, () => <String>{});
+      if (selectedActions.contains(action)) {
+        selectedActions.remove(action);
       } else {
-        _selectedActions.add(action);
+        selectedActions.add(action);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedActions = _selectedActionsByDate[_dateKey] ?? <String>{};
+
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       itemCount: _actions.length,
@@ -462,7 +473,7 @@ class _ActionTabState extends State<_ActionTab> {
       ),
       itemBuilder: (context, index) {
         final action = _actions[index];
-        final isSelected = _selectedActions.contains(action);
+        final isSelected = selectedActions.contains(action);
 
         return InkWell(
           onTap: () => _toggleAction(action),
