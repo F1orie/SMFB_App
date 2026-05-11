@@ -302,58 +302,27 @@ class _BadgeIconButton extends StatelessWidget {
     required this.backgroundColor,
     required this.icon,
     required this.iconColor,
-    this.badgeText,
   });
 
   final double size;
   final Color backgroundColor;
   final IconData icon;
   final Color iconColor;
-  final String? badgeText;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        SizedBox(
-          width: size,
-          height: size,
-          child: Material(
-            color: backgroundColor,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () {},
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-          ),
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Material(
+        color: backgroundColor,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () {},
+          child: Icon(icon, color: iconColor, size: 22),
         ),
-        if (badgeText != null)
-          Positioned(
-            right: -6,
-            top: -3,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE53935),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                badgeText!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
