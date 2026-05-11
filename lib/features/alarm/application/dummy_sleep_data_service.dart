@@ -10,14 +10,24 @@ class DummySleepDataService {
 
   final SleepRepository _repository;
 
-  Future<String> generateAndSave() async {
-    final int now = DateTime.now().millisecondsSinceEpoch;
+  Future<String> generateAndSave({DateTime? date}) async {
+    final targetDate = date ?? DateTime.now();
 
-    final int startAt = now - const Duration(hours: 7).inMilliseconds;
-    final int endAt = now;
+    // 指定日の 00:00〜07:00 を睡眠区間とする
+    final startDt = DateTime(targetDate.year, targetDate.month, targetDate.day);
+    final endDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 7);
+
+    final int startAt = startDt.millisecondsSinceEpoch;
+    final int endAt = endDt.millisecondsSinceEpoch;
+
+    // 同一日付の既存データを上書きできるよう日付をIDに含める
+    final dateKey =
+        '${targetDate.year}'
+        '${targetDate.month.toString().padLeft(2, '0')}'
+        '${targetDate.day.toString().padLeft(2, '0')}';
 
     final SleepSession session = SleepSession(
-      id: 'dummy_$now',
+      id: 'dummy_$dateKey',
       startAtEpochMs: startAt,
       endAtEpochMs: endAt,
       status: SleepSessionStatus.finished,
@@ -36,7 +46,7 @@ class DummySleepDataService {
 
     final SleepNote note = SleepNote(
       sessionId: session.id,
-      createdAtEpochMs: now,
+      createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
       memo: 'Demo用ダミーデータ。就寝前にスマホを使用。',
       hadAlcohol: true,
       hadCaffeine: false,

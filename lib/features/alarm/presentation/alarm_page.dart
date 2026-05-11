@@ -95,7 +95,18 @@ class _AlarmPageState extends State<AlarmPage> {
   }
 
   Future<void> _createDummyData() async {
-    final sessionId = await _dummySleepDataService.generateAndSave();
+    final picked = await showDatePicker(
+      context: context,
+      locale: const Locale('ja'),
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030, 12, 31),
+    );
+
+    if (picked == null || !mounted) return;
+
+    final sessionId =
+        await _dummySleepDataService.generateAndSave(date: picked);
 
     if (!mounted) return;
 
@@ -104,7 +115,11 @@ class _AlarmPageState extends State<AlarmPage> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('ダミーデータを保存しました: $sessionId')),
+      SnackBar(
+        content: Text(
+          '${picked.month}月${picked.day}日のダミーデータを保存しました',
+        ),
+      ),
     );
   }
 

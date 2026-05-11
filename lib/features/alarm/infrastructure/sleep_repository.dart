@@ -45,4 +45,11 @@ class SleepRepository {
     _epochs.clear();
     _notes.clear();
   }
+
+  // 同期アクセサ（インメモリなので非同期ラップ不要）
+  List<SleepSession> get allSessions => List.unmodifiable(_sessions);
+
+  List<SleepEpoch> epochsForSession(String sessionId) => List.unmodifiable(
+    _epochs.where((e) => e.sessionId == sessionId),
+  );
 }
