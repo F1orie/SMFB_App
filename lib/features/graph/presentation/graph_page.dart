@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 
 import '../daily_sleep_depth_mock.dart';
 
@@ -32,7 +33,72 @@ class _GraphPageState extends State<GraphPage> {
     if (y == 2026 && m == 4 && d == 22) return buildNoSleepMock();
     if (y == 2026 && m == 4 && d == 23) return buildOversleepMock();
 
+    // リポジトリに保存済みのダミーデータがあれば使う
+    final repoMock = _buildFromRepository(date);
+    if (repoMock != null) return repoMock;
+
     return buildEmptyMock(date);
+  }
+
+  /// リポジトリの SleepEpoch を DailySleepDepthMock に変換する。
+  /// 対象日のセッションがなければ null を返す。
+  DailySleepDepthMock? _buildFromRepository(DateTime date) {
+    final repo = SleepRepository.instance;
+    final sessions = repo.allSessions.where((s) {
+      final start = DateTime.fromMillisecondsSinceEpoch(s.startAtEpochMs);
+      return start.year == date.year &&
+          start.month == date.month &&
+          start.day == date.day;
+    });
+    if (sessions.isEmpty) return null;
+
+    final session = sessions.first;
+    final epochs = repo.epochsForSession(session.id);
+    if (epochs.isEmpty) return null;
+
+    final startMs = session.startAtEpochMs;
+    final endMs =
+        session.endAtEpochMs ??
+        startMs + const Duration(hours: 7).inMilliseconds;
+
+    final points = (epochs.map(
+      (e) => SleepDepthPoint(
+        minuteFromZero: ((e.tEpochMs - startMs) / 60000).floor(),
+        depth01: e.scoreDepth.clamp(0.0, 1.0),
+      ),
+    ).toList()
+      ..sort((a, b) => a.minuteFromZero.compareTo(b.minuteFromZero)));
+
+    final startDt = DateTime.fromMillisecondsSinceEpoch(startMs);
+    final endDt = DateTime.fromMillisecondsSinceEpoch(endMs);
+    final totalHours = ((endMs - startMs) / 3600000).ceil().clamp(1, 24);
+
+    final dMs = endMs - startMs;
+    final dh = (dMs / 3600000).floor();
+    final dm = ((dMs % 3600000) / 60000).floor();
+    final durationLabel = dm > 0 ? '$dh時間$dm分' : '$dh時間';
+
+    String pad(int v) => v.toString().padLeft(2, '0');
+
+    return DailySleepDepthMock(
+      rangeLabel: '${startDt.month}月${startDt.day}日',
+      xTickStartHour: 0,
+      xTickEndHour: totalHours,
+      points: points,
+      summary: SleepSummaryMock(
+        bedtimeLabel: '${startDt.hour}:${pad(startDt.minute)}',
+        fallAsleepLabel: '--',
+        wakeUpLabel: '${endDt.hour}:${pad(endDt.minute)}',
+        sleepDurationLabel: durationLabel,
+        latencyLabel: '--',
+        awakeningCountLabel: '--',
+        awakeningTimeLabel: '--',
+        efficiencyLabel: '--',
+        deepTimeLabel: '--',
+        lightTimeLabel: '--',
+      ),
+      memo: '',
+    );
   }
 
   void _goPreviousDay() {
