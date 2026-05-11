@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../application/dummy_sleep_data_service.dart';
@@ -341,26 +342,34 @@ class _WheelColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListWheelScrollView.useDelegate(
-      controller: controller,
-      itemExtent: itemExtent,
-      perspective: 0.006,
-      diameterRatio: 1.45,
-      physics: const FixedExtentScrollPhysics(),
-      onSelectedItemChanged: onSelected,
-      childDelegate: ListWheelChildBuilderDelegate(
-        childCount: itemCount,
-        builder: (context, index) {
-          return Center(
-            child: Text(
-              labelBuilder(index),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-            ),
-          );
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
         },
+      ),
+      child: ListWheelScrollView.useDelegate(
+        controller: controller,
+        itemExtent: itemExtent,
+        perspective: 0.006,
+        diameterRatio: 1.45,
+        physics: const FixedExtentScrollPhysics(),
+        onSelectedItemChanged: onSelected,
+        childDelegate: ListWheelChildBuilderDelegate(
+          childCount: itemCount,
+          builder: (context, index) {
+            return Center(
+              child: Text(
+                labelBuilder(index),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
