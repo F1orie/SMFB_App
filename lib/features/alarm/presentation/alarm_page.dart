@@ -26,6 +26,7 @@ class _AlarmPageState extends State<AlarmPage> {
   final SleepRecorderService _recorderService = SleepRecorderService();
   final DummySleepDataService _dummySleepDataService = DummySleepDataService();
 
+  SleepRecordResult? _lastResult;
   String? _lastDummySessionId;
 
   int _hour = 7;
@@ -67,6 +68,10 @@ class _AlarmPageState extends State<AlarmPage> {
   void _startRecording() {
     _recorderService.start();
 
+    setState(() {
+      _lastResult = null;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('睡眠記録を開始しました')),
     );
@@ -74,6 +79,10 @@ class _AlarmPageState extends State<AlarmPage> {
 
   void _stopRecording() {
     final result = _recorderService.stop();
+
+    setState(() {
+      _lastResult = result;
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -197,13 +206,18 @@ class _AlarmPageState extends State<AlarmPage> {
                   label: const Text('ダミーデータ作成'),
                 ),
               ),
+              if (_lastResult != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '睡眠時間: ${_lastResult!.metrics.totalSleepMin}分 / 平均深度: ${_lastResult!.metrics.averageDepth.toStringAsFixed(2)}',
+                  style: textTheme.bodySmall?.copyWith(color: Colors.black54),
+                ),
+              ],
               if (_lastDummySessionId != null) ...[
                 const SizedBox(height: 6),
                 Text(
-                  '保存済みセッションID: $_lastDummySessionId',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: Colors.black54,
-                  ),
+                  '保存済みダミーID: $_lastDummySessionId',
+                  style: textTheme.bodySmall?.copyWith(color: Colors.black54),
                 ),
               ],
               const SizedBox(height: 12),
@@ -370,6 +384,7 @@ class _SideActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const size = 44.0;
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

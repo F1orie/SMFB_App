@@ -4,7 +4,6 @@ import '../domain/sleep_note.dart';
 import '../domain/sleep_session.dart';
 import '../infrastructure/sleep_repository.dart';
 
-/// デモ用の睡眠ダミーデータを生成してリポジトリに保存するサービス。
 class DummySleepDataService {
   DummySleepDataService({SleepRepository? repository})
       : _repository = repository ?? SleepRepository.instance;
@@ -38,7 +37,7 @@ class DummySleepDataService {
     final SleepNote note = SleepNote(
       sessionId: session.id,
       createdAtEpochMs: now,
-      memo: 'Demo用ダミーデータ。就寝前にスマホ使用。',
+      memo: 'Demo用ダミーデータ。就寝前にスマホを使用。',
       hadAlcohol: true,
       hadCaffeine: false,
       didExercise: false,
@@ -75,7 +74,7 @@ class DummySleepDataService {
   }
 
   double _dummyActivityCount(int minute) {
-    // 0〜30分：入眠前で高活動
+    // 0〜30分：入眠前で体動多め
     if (minute < 30) return 0.9;
 
     // 30〜90分：浅い睡眠

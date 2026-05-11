@@ -1,10 +1,10 @@
-enum SleepSessionStatus { active, finished, abandoned }
+enum SleepSessionStatus { recording, finished }
 
 class SleepSession {
   const SleepSession({
     required this.id,
     required this.startAtEpochMs,
-    required this.endAtEpochMs,
+    this.endAtEpochMs,
     required this.status,
     required this.algoVersion,
     required this.samplingPeriodSec,
@@ -15,7 +15,7 @@ class SleepSession {
 
   final String id;
   final int startAtEpochMs;
-  final int endAtEpochMs;
+  final int? endAtEpochMs;
   final SleepSessionStatus status;
   final String algoVersion;
   final int samplingPeriodSec;
