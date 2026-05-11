@@ -1,4 +1,5 @@
-import '../domain/depth_scoring.dart';
+import 'dart:math';
+
 import '../domain/sleep_epoch.dart';
 import '../domain/sleep_note.dart';
 import '../domain/sleep_session.dart';
@@ -9,18 +10,18 @@ class DummySleepDataService {
       : _repository = repository ?? SleepRepository.instance;
 
   final SleepRepository _repository;
+  final Random _rng = Random();
 
   Future<String> generateAndSave({DateTime? date}) async {
     final targetDate = date ?? DateTime.now();
 
-    // 指定日の 00:00〜07:00 を睡眠区間とする
+    final int sleepHours = 5 + _rng.nextInt(6); // 5〜10時間
     final startDt = DateTime(targetDate.year, targetDate.month, targetDate.day);
-    final endDt = DateTime(targetDate.year, targetDate.month, targetDate.day, 7);
+    final endDt = startDt.add(Duration(hours: sleepHours));
 
     final int startAt = startDt.millisecondsSinceEpoch;
     final int endAt = endDt.millisecondsSinceEpoch;
 
-    // 同一日付の既存データを上書きできるよう日付をIDに含める
     final dateKey =
         '${targetDate.year}'
         '${targetDate.month.toString().padLeft(2, '0')}'
@@ -31,75 +32,72 @@ class DummySleepDataService {
       startAtEpochMs: startAt,
       endAtEpochMs: endAt,
       status: SleepSessionStatus.finished,
-      algoVersion: DepthScoring.algoVersion,
-      samplingPeriodSec: 60,
+      algoVersion: 'wave_v1',
+      samplingPeriodSec: 60 * 5,
       tzOffsetMin: DateTime.now().timeZoneOffset.inMinutes,
       appVersion: '0.1.0',
       syncState: 'local_only',
     );
 
-    final List<SleepEpoch> epochs = _createDummyEpochs(
+    await _repository.saveSession(session);
+    await _repository.removeEpochsForSession(session.id);
+
+    final List<SleepEpoch> epochs = _createWaveEpochs(
       sessionId: session.id,
       startAtEpochMs: startAt,
-      minutes: 7 * 60,
+      totalMinutes: sleepHours * 60,
     );
 
     final SleepNote note = SleepNote(
       sessionId: session.id,
       createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
-      memo: 'Demo用ダミーデータ。就寝前にスマホを使用。',
-      hadAlcohol: true,
-      hadCaffeine: false,
-      didExercise: false,
+      memo: 'Demo用ダミーデータ（サイン波生成）',
+      hadAlcohol: _rng.nextBool(),
+      hadCaffeine: _rng.nextBool(),
+      didExercise: _rng.nextBool(),
     );
 
-    await _repository.saveSession(session);
     await _repository.saveEpochs(epochs);
     await _repository.saveNote(note);
 
     return session.id;
   }
 
-  List<SleepEpoch> _createDummyEpochs({
+  List<SleepEpoch> _createWaveEpochs({
     required String sessionId,
     required int startAtEpochMs,
-    required int minutes,
+    required int totalMinutes,
   }) {
+    final double baseOffset = 0.40 + _rng.nextDouble() * 0.10;
+    final double amp1 = 0.25 + _rng.nextDouble() * 0.10;
+    final double amp2 = 0.10 + _rng.nextDouble() * 0.15;
+    final double amp3 = 0.05 + _rng.nextDouble() * 0.08;
+    final double freq2 = 3.0 + _rng.nextDouble() * 2.0;
+    final double phase2 = _rng.nextDouble() * 2 * pi;
+    final double phase3 = _rng.nextDouble() * 2 * pi;
+
+    const stepMinutes = 5;
     final List<SleepEpoch> epochs = [];
 
-    for (int i = 0; i < minutes; i++) {
-      final double activityCount = _dummyActivityCount(i);
+    for (int m = 0; m <= totalMinutes; m += stepMinutes) {
+      final double t = m / totalMinutes;
+      final double raw =
+          baseOffset +
+          amp1 * sin(t * pi) +
+          amp2 * sin(t * pi * freq2 + phase2) -
+          amp3 * sin(t * pi * 7 + phase3);
+      final double depth01 = raw.clamp(0.0, 1.0);
 
       epochs.add(
         SleepEpoch(
           sessionId: sessionId,
-          tEpochMs: startAtEpochMs + Duration(minutes: i).inMilliseconds,
-          activityCount: activityCount,
-          scoreDepth: DepthScoring.calculateScoreDepth(activityCount),
+          tEpochMs: startAtEpochMs + Duration(minutes: m).inMilliseconds,
+          activityCount: 1.0 - depth01,
+          scoreDepth: depth01,
         ),
       );
     }
 
     return epochs;
-  }
-
-  double _dummyActivityCount(int minute) {
-    // 0〜30分：入眠前で体動多め
-    if (minute < 30) return 0.9;
-
-    // 30〜90分：浅い睡眠
-    if (minute < 90) return 0.5;
-
-    // 90〜210分：深い睡眠
-    if (minute < 210) return 0.2;
-
-    // 210〜225分：中途覚醒
-    if (minute < 225) return 0.85;
-
-    // 225〜360分：再び睡眠
-    if (minute < 360) return 0.25;
-
-    // 起床前：浅くなる
-    return 0.6;
   }
 }
