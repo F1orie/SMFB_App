@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:smf_app/common/navigation/main_tab_index_notifier.dart';
 import 'package:smf_app/common/ui/navigation/app_bottom_navigation_bar.dart';
 import 'package:smf_app/features/alarm/presentation/alarm_page.dart';
+import 'package:smf_app/features/fb/presentation/pages/fb_dashboard_page.dart';
 import 'package:smf_app/features/graph/presentation/graph_page.dart';
 
 class SmfApp extends StatelessWidget {
@@ -43,6 +44,15 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late final MainTabIndexNotifier _mainTab = MainTabIndexNotifier();
 
+  /// メモ保存後に fb 画面を再生成するためのカウンタ
+  int _fbRebuildKey = 0;
+
+  void _navigateToFb() {
+    // key を変えて FbDashboardPage を再生成し、最新データを表示する
+    _fbRebuildKey++;
+    _mainTab.select(5);
+  }
+
   @override
   void dispose() {
     _mainTab.dispose();
@@ -59,12 +69,15 @@ class _MainShellState extends State<MainShell> {
           body: IndexedStack(
             index: index,
             children: [
-              AlarmPage(onNavigateToGraph: () => _mainTab.select(1)),
+              AlarmPage(
+                onNavigateToGraph: () => _mainTab.select(1),
+                onNavigateToFb: _navigateToFb,
+              ),
               GraphPage(),
               _PlaceholderTab(label: 'リスト'),
               _PlaceholderTab(label: '統計'),
               _PlaceholderTab(label: '設定'),
-              _PlaceholderTab(label: 'フィードバック'),
+              FbDashboardPage(key: ValueKey(_fbRebuildKey)),
               _PlaceholderTab(label: 'モーション'),
             ],
           ),
