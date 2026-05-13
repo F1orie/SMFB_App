@@ -239,34 +239,15 @@ class _AlarmPageState extends State<AlarmPage> {
             children: [
               const SizedBox(height: 24),
               Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          flex: 6,
-                          child: _AlarmTimePickerCard(
-                            itemExtent: _itemExtent,
-                            borderColor: AlarmPage.pickerBorderColor,
-                            hourCtrl: _hourCtrl,
-                            minuteCtrl: _minuteCtrl,
-                            onHourChanged: (h) => setState(() => _hour = h),
-                            onMinuteChanged: (m) =>
-                                setState(() => _minute = m),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        _SideActionButtons(
-                          onMemo: () {},
-                          onCheck: () {},
-                          onShare: () {},
-                          onMic: () {},
-                          onAudio: () {},
-                        ),
-                      ],
-                    );
-                  },
+                child: Center(
+                  child: _AlarmTimePickerCard(
+                    itemExtent: _itemExtent,
+                    borderColor: AlarmPage.pickerBorderColor,
+                    hourCtrl: _hourCtrl,
+                    minuteCtrl: _minuteCtrl,
+                    onHourChanged: (h) => setState(() => _hour = h),
+                    onMinuteChanged: (m) => setState(() => _minute = m),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -488,129 +469,6 @@ class _WheelColumn extends StatelessWidget {
           },
         ),
       ),
-    );
-  }
-}
-
-class _SideActionButtons extends StatelessWidget {
-  const _SideActionButtons({
-    required this.onMemo,
-    required this.onCheck,
-    required this.onShare,
-    required this.onMic,
-    required this.onAudio,
-  });
-
-  final VoidCallback onMemo;
-  final VoidCallback onCheck;
-  final VoidCallback onShare;
-  final VoidCallback onMic;
-  final VoidCallback onAudio;
-
-  @override
-  Widget build(BuildContext context) {
-    const size = 44.0;
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _RoundIconButton(
-          color: const Color(0xFFF28C38),
-          icon: Icons.edit_outlined,
-          size: size,
-          onPressed: onMemo,
-        ),
-        const SizedBox(height: 8),
-        _RoundIconButton(
-          color: const Color(0xFF5CB85C),
-          icon: Icons.check,
-          size: size,
-          onPressed: onCheck,
-        ),
-        const SizedBox(height: 8),
-        _RoundIconButton(
-          color: const Color(0xFF5DADE2),
-          icon: Icons.share_outlined,
-          size: size,
-          onPressed: onShare,
-        ),
-        const SizedBox(height: 8),
-        _RoundIconButton(
-          color: const Color(0xFF9B59B6),
-          icon: Icons.mic_none_rounded,
-          size: size,
-          onPressed: onMic,
-          badgeLabel: 'SET',
-        ),
-        const SizedBox(height: 8),
-        _RoundIconButton(
-          color: const Color(0xFFE56B8C),
-          icon: Icons.headphones_outlined,
-          size: size,
-          onPressed: onAudio,
-        ),
-      ],
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.color,
-    required this.icon,
-    required this.size,
-    required this.onPressed,
-    this.badgeLabel,
-  });
-
-  final Color color;
-  final IconData icon;
-  final double size;
-  final VoidCallback onPressed;
-  final String? badgeLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Material(
-          color: color,
-          shape: const CircleBorder(),
-          elevation: 1,
-          shadowColor: Colors.black26,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPressed,
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Icon(icon, color: Colors.white, size: size * 0.45),
-            ),
-          ),
-        ),
-        if (badgeLabel != null)
-          Positioned(
-            right: -4,
-            top: -2,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.red.shade600,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.white, width: 1),
-              ),
-              child: Text(
-                badgeLabel!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
