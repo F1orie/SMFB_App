@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/alarm/domain/sleep_note.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 
@@ -20,6 +23,27 @@ class _GraphPageState extends State<GraphPage> {
   final Map<String, Set<String>> _selectedActionsByDate = {};
 
   static const _kBackground = Color(0xFF071C35);
+  static const _kActionSelectionsKey = 'action_selections';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActionSelections();
+  }
+
+  Future<void> _loadActionSelections() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kActionSelectionsKey);
+    if (raw == null || !mounted) return;
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    setState(() {
+      _selectedActionsByDate
+        ..clear()
+        ..addAll(
+          decoded.map((k, v) => MapEntry(k, Set<String>.from(v as List))),
+        );
+    });
+  }
 
   DailySleepDepthMock get _mock {
     return _mockByDate(_selectedDate);
@@ -591,6 +615,18 @@ class _ActionTabState extends State<_ActionTab> {
         selectedActions.add(action);
       }
     });
+    _saveActionSelections();
+  }
+
+  Future<void> _saveActionSelections() async {
+    final prefs = await SharedPreferences.getInstance();
+    final toSave = widget.selectedActionsByDate.map(
+      (k, v) => MapEntry(k, v.toList()),
+    );
+    await prefs.setString(
+      _GraphPageState._kActionSelectionsKey,
+      jsonEncode(toSave),
+    );
   }
 
   @override
