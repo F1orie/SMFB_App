@@ -53,7 +53,15 @@ class SleepRepository {
     _epochs.where((e) => e.sessionId == sessionId),
   );
 
+  List<SleepNote> notesForSession(String sessionId) => List.unmodifiable(
+    _notes.where((n) => n.sessionId == sessionId),
+  );
+
   Future<void> removeEpochsForSession(String sessionId) async {
     _epochs.removeWhere((e) => e.sessionId == sessionId);
+  }
+
+  Future<void> removeNotesForSession(String sessionId) async {
+    _notes.removeWhere((n) => n.sessionId == sessionId);
   }
 }

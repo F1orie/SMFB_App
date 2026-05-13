@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smf_app/features/alarm/domain/sleep_note.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 
 import '../daily_sleep_depth_mock.dart';
@@ -85,6 +86,9 @@ class _GraphPageState extends State<GraphPage> {
         : null;
     final int actualWakeMin = ((endMs - startMs) / 60000).floor();
 
+    final notes = repo.notesForSession(session.id);
+    final memo = notes.isNotEmpty ? notes.last.memo : '';
+
     return DailySleepDepthMock(
       rangeLabel: '${startDt.month}月${startDt.day}日',
       xTickStartHour: 0,
@@ -102,7 +106,8 @@ class _GraphPageState extends State<GraphPage> {
         deepTimeLabel: '--',
         lightTimeLabel: '--',
       ),
-      memo: '',
+      memo: memo,
+      sessionId: session.id,
       alarmMinuteFromZero: alarmMin,
       actualWakeMinuteFromZero: actualWakeMin,
     );
@@ -198,7 +203,10 @@ class _GraphPageState extends State<GraphPage> {
                       child: TabBarView(
                         children: [
                           _DataTab(summary: summary),
-                          _MemoTab(memo: _mock.memo),
+                          _MemoTab(
+                            memo: _mock.memo,
+                            sessionId: _mock.sessionId,
+                          ),
                           _ActionTab(
                             selectedDate: _selectedDate,
                             selectedActionsByDate: _selectedActionsByDate,
@@ -435,37 +443,110 @@ class _DataTab extends StatelessWidget {
   }
 }
 
-class _MemoTab extends StatelessWidget {
-  const _MemoTab({required this.memo});
+class _MemoTab extends StatefulWidget {
+  const _MemoTab({required this.memo, this.sessionId});
 
   final String memo;
+  final String? sessionId;
+
+  @override
+  State<_MemoTab> createState() => _MemoTabState();
+}
+
+class _MemoTabState extends State<_MemoTab> {
+  late final TextEditingController _ctrl;
+  bool _saved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.memo);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final sessionId = widget.sessionId;
+    if (sessionId == null) return;
+    final repo = SleepRepository.instance;
+    await repo.removeNotesForSession(sessionId);
+    await repo.saveNote(
+      SleepNote(
+        sessionId: sessionId,
+        createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+        memo: _ctrl.text,
+        hadAlcohol: false,
+        hadCaffeine: false,
+        didExercise: false,
+      ),
+    );
+    if (mounted) setState(() => _saved = true);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final displayMemo = memo.isEmpty ? 'メモはありません。' : memo;
+    final canSave = widget.sessionId != null;
 
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Container(
-        width: double.infinity,
-        height: 220,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.15),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            height: 180,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            child: TextField(
+              controller: _ctrl,
+              maxLines: null,
+              expands: true,
+              enabled: canSave,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 16,
+                height: 1.6,
+              ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: 'メモを入力してください',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
+              ),
+              onChanged: (_) {
+                if (_saved) setState(() => _saved = false);
+              },
+            ),
           ),
-        ),
-        child: Text(
-          displayMemo,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.85),
-            fontSize: 16,
-            height: 1.6,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+          const SizedBox(height: 10),
+          if (canSave)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (_saved)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Text(
+                      '保存しました',
+                      style: TextStyle(
+                        color: Colors.greenAccent.withValues(alpha: 0.85),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                FilledButton(
+                  onPressed: _save,
+                  child: const Text('保存'),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
