@@ -1,48 +1,80 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:smf_app/features/fb/application/config/analysis_config.dart';
 import 'package:smf_app/features/fb/infrastructure/log/app_logger.dart';
 
+/// Google Gemini API クライアント
 class ApiClient {
-  // Pythonサーバーの基本URL（10.0.2.2はAndroidエミュレータ用）
-  final String baseUrl = "http://10.0.2.2:8000";
+  static const String _model = 'gemini-1.5-flash';
+  static String get _endpoint =>
+      'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent'
+      '?key=${AnalysisConfig.geminiApiKey}';
 
-  // 通信のタイムアウト時間などを設定した共通のクライアント
   final http.Client _client = http.Client();
 
-  /// 共通のPOSTリクエスト処理
-  /// [endpoint] : "/analyze" などのパス
-  /// [body] : 送信するデータのマップ
-  Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    
-    try {
-      AppLogger.d("APIリクエスト送信中: $url");
-
-      final response = await _client.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+  /// Gemini にメッセージを送信して返答テキストを取得する
+  /// [systemPrompt] : システムプロンプト（睡眠データなどのコンテキスト）
+  /// [userMessage]  : ユーザーのメッセージ
+  /// [history]      : チャット履歴（role: 'user'|'assistant', content: String）
+  Future<String> chat({
+    required String systemPrompt,
+    required String userMessage,
+    List<Map<String, String>> history = const [],
+  }) async {
+    // 履歴を Gemini 形式に変換（assistant → model）
+    final contents = <Map<String, dynamic>>[
+      for (final h in history)
+        {
+          'role': h['role'] == 'assistant' ? 'model' : h['role'],
+          'parts': [
+            {'text': h['content']},
+          ],
         },
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 30)); // 30秒でタイムアウト設定
+      {
+        'role': 'user',
+        'parts': [
+          {'text': userMessage},
+        ],
+      },
+    ];
 
-      return _handleResponse(response);
+    AppLogger.d('Gemini API 呼び出し: $userMessage');
+
+    try {
+      final response = await _client
+          .post(
+            Uri.parse(_endpoint),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'system_instruction': {
+                'parts': [
+                  {'text': systemPrompt},
+                ],
+              },
+              'contents': contents,
+              'generationConfig': {'maxOutputTokens': 500},
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final candidates = data['candidates'] as List<dynamic>;
+        final content =
+            (candidates.first as Map<String, dynamic>)['content']
+                as Map<String, dynamic>;
+        final parts = content['parts'] as List<dynamic>;
+        final text = (parts.first as Map<String, dynamic>)['text'] as String;
+        AppLogger.d('Gemini 応答: $text');
+        return text;
+      } else {
+        AppLogger.e('Gemini API エラー: ${response.statusCode} ${response.body}');
+        throw Exception('Gemini API エラー (${response.statusCode})');
+      }
     } catch (e) {
-      AppLogger.e("通信中にエラーが発生しました ($endpoint)", e);
+      AppLogger.e('Gemini API 通信エラー', e);
       rethrow;
-    }
-  }
-
-  /// サーバーからの返答（レスポンス）をチェックする共通処理
-  Map<String, dynamic> _handleResponse(http.Response response) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      // 成功時：JSONをMapに変換
-      return jsonDecode(utf8.decode(response.bodyBytes));
-    } else {
-      // 失敗時：エラーログを出力して例外を投げる
-      AppLogger.e("サーバーエラー: ${response.statusCode} 内容: ${response.body}");
-      throw Exception("サーバー接続エラー (${response.statusCode})");
     }
   }
 }
