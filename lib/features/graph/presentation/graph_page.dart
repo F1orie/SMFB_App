@@ -149,6 +149,39 @@ class _GraphPageState extends State<GraphPage> {
     });
   }
 
+  Future<void> _deleteCurrentDay() async {
+    final sessionId = _mock.sessionId;
+    if (sessionId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('記録を削除しますか？'),
+        content: const Text('この日の睡眠データが削除されます'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final repo = SleepRepository.instance;
+    await repo.removeSession(sessionId);
+    await repo.removeEpochsForSession(sessionId);
+    await repo.removeNotesForSession(sessionId);
+
+    if (mounted) setState(() {});
+  }
+
   Future<void> _openCalendar() async {
     final pickedDate = await showDatePicker(
       context: context,
@@ -181,6 +214,7 @@ class _GraphPageState extends State<GraphPage> {
               onCalendarTap: _openCalendar,
               onPreviousTap: _goPreviousDay,
               onNextTap: _goNextDay,
+              onDeleteTap: _mock.sessionId != null ? () => _deleteCurrentDay() : null,
             ),
             const SizedBox(height: 8),
             Padding(
@@ -211,8 +245,6 @@ class _GraphPageState extends State<GraphPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            const _GraphActionRow(),
             const SizedBox(height: 10),
             Expanded(
               child: DefaultTabController(
@@ -255,12 +287,14 @@ class _DateRangeHeader extends StatelessWidget {
     required this.onCalendarTap,
     required this.onPreviousTap,
     required this.onNextTap,
+    this.onDeleteTap,
   });
 
   final String text;
   final VoidCallback onCalendarTap;
   final VoidCallback onPreviousTap;
   final VoidCallback onNextTap;
+  final VoidCallback? onDeleteTap;
 
   @override
   Widget build(BuildContext context) {
@@ -289,80 +323,15 @@ class _DateRangeHeader extends StatelessWidget {
             onPressed: onNextTap,
             icon: const Icon(Icons.chevron_right, color: Colors.white),
           ),
+          if (onDeleteTap != null)
+            IconButton(
+              onPressed: onDeleteTap,
+              icon: Icon(
+                Icons.delete_outline,
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
         ],
-      ),
-    );
-  }
-}
-
-class _GraphActionRow extends StatelessWidget {
-  const _GraphActionRow();
-
-  @override
-  Widget build(BuildContext context) {
-    const buttonSize = 44.0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _BadgeIconButton(
-            size: buttonSize,
-            backgroundColor: Colors.white.withValues(alpha: 0.09),
-            icon: Icons.delete_outline,
-            iconColor: Colors.white,
-          ),
-          _BadgeIconButton(
-            size: buttonSize,
-            backgroundColor: Colors.white.withValues(alpha: 0.09),
-            icon: Icons.mail_outline,
-            iconColor: Colors.white,
-          ),
-          _BadgeIconButton(
-            size: buttonSize,
-            backgroundColor: Colors.white.withValues(alpha: 0.09),
-            icon: Icons.volume_up_outlined,
-            iconColor: Colors.white,
-          ),
-          _BadgeIconButton(
-            size: buttonSize,
-            backgroundColor: Colors.white.withValues(alpha: 0.09),
-            icon: Icons.share_outlined,
-            iconColor: Colors.white,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BadgeIconButton extends StatelessWidget {
-  const _BadgeIconButton({
-    required this.size,
-    required this.backgroundColor,
-    required this.icon,
-    required this.iconColor,
-  });
-
-  final double size;
-  final Color backgroundColor;
-  final IconData icon;
-  final Color iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Material(
-        color: backgroundColor,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () {},
-          child: Icon(icon, color: iconColor, size: 22),
-        ),
       ),
     );
   }
