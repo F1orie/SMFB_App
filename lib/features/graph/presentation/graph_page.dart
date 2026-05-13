@@ -80,6 +80,11 @@ class _GraphPageState extends State<GraphPage> {
 
     String pad(int v) => v.toString().padLeft(2, '0');
 
+    final int? alarmMin = session.alarmTimeEpochMs != null
+        ? ((session.alarmTimeEpochMs! - startMs) / 60000).floor()
+        : null;
+    final int actualWakeMin = ((endMs - startMs) / 60000).floor();
+
     return DailySleepDepthMock(
       rangeLabel: '${startDt.month}月${startDt.day}日',
       xTickStartHour: 0,
@@ -98,6 +103,8 @@ class _GraphPageState extends State<GraphPage> {
         lightTimeLabel: '--',
       ),
       memo: '',
+      alarmMinuteFromZero: alarmMin,
+      actualWakeMinuteFromZero: actualWakeMin,
     );
   }
 
@@ -166,6 +173,8 @@ class _GraphPageState extends State<GraphPage> {
                         points: _mock.points,
                         xTickStartHour: _mock.xTickStartHour,
                         xTickEndHour: _mock.xTickEndHour,
+                        alarmMinuteFromZero: _mock.alarmMinuteFromZero,
+                        actualWakeMinuteFromZero: _mock.actualWakeMinuteFromZero,
                       ),
                       child: const SizedBox.expand(),
                     ),
@@ -556,11 +565,15 @@ class SleepDepthAreaChartPainter extends CustomPainter {
     required this.points,
     required this.xTickStartHour,
     required this.xTickEndHour,
+    this.alarmMinuteFromZero,
+    this.actualWakeMinuteFromZero,
   });
 
   final List<SleepDepthPoint> points;
   final int xTickStartHour;
   final int xTickEndHour;
+  final int? alarmMinuteFromZero;
+  final int? actualWakeMinuteFromZero;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -608,6 +621,52 @@ class SleepDepthAreaChartPainter extends CustomPainter {
     final totalMinutes = (xTickEndHour - xTickStartHour) * 60;
     final lastMinute = points.last.minuteFromZero;
     final denom = (lastMinute > 0) ? lastMinute : totalMinutes.toDouble();
+
+    // ── 起床ウィンドウ描画 ──────────────────────────────────────
+    final alarm = alarmMinuteFromZero;
+    final wake = actualWakeMinuteFromZero;
+
+    if (alarm != null) {
+      final windowStart = (alarm - 30).clamp(0, totalMinutes);
+      final xWinStart =
+          plotRect.left + (windowStart / denom) * plotRect.width;
+      final xWinEnd =
+          (plotRect.left + (alarm / denom) * plotRect.width)
+              .clamp(plotRect.left, plotRect.right);
+
+      // 黄色の半透明帯
+      canvas.drawRect(
+        Rect.fromLTRB(xWinStart, plotRect.top, xWinEnd, plotRect.bottom),
+        Paint()..color = Colors.yellow.withValues(alpha: 0.18),
+      );
+
+      if (wake != null) {
+        final xWake =
+            (plotRect.left + (wake / denom) * plotRect.width)
+                .clamp(plotRect.left, plotRect.right);
+        final inWindow = wake >= alarm - 30 && wake <= alarm;
+        final lineColor = inWindow ? Colors.greenAccent : Colors.redAccent;
+
+        // 縦線
+        canvas.drawLine(
+          Offset(xWake, plotRect.top),
+          Offset(xWake, plotRect.bottom),
+          Paint()
+            ..color = lineColor
+            ..strokeWidth = 2.0,
+        );
+
+        // ラベル
+        _drawTickLabel(
+          canvas,
+          text: inWindow ? '設定時刻内に起床' : '設定時刻を過ぎて起床',
+          x: xWake,
+          y: plotRect.top - 2,
+          color: lineColor,
+        );
+      }
+    }
+    // ────────────────────────────────────────────────────────────
 
     final linePath = Path();
 
@@ -673,6 +732,8 @@ class SleepDepthAreaChartPainter extends CustomPainter {
   bool shouldRepaint(covariant SleepDepthAreaChartPainter oldDelegate) {
     return oldDelegate.points != points ||
         oldDelegate.xTickStartHour != xTickStartHour ||
-        oldDelegate.xTickEndHour != xTickEndHour;
+        oldDelegate.xTickEndHour != xTickEndHour ||
+        oldDelegate.alarmMinuteFromZero != alarmMinuteFromZero ||
+        oldDelegate.actualWakeMinuteFromZero != actualWakeMinuteFromZero;
   }
 }
