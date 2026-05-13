@@ -40,9 +40,9 @@ class AppBottomNavigationBar extends StatelessWidget {
       label: '設定',
     ),
     NavigationDestination(
-      icon: Icon(Icons.feedback_outlined),
-      selectedIcon: Icon(Icons.feedback),
-      label: 'フィードバック',
+      icon: Icon(Icons.analytics_outlined),
+      selectedIcon: Icon(Icons.analytics),
+      label: '分析',
     ),
     NavigationDestination(
       icon: Icon(Icons.refresh_outlined),

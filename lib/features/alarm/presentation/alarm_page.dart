@@ -24,9 +24,10 @@ const _alarmMinuteGranularity = 5;
 
 /// 参考 UI に近いアラーム設定画面
 class AlarmPage extends StatefulWidget {
-  const AlarmPage({super.key, this.onNavigateToGraph});
+  const AlarmPage({super.key, this.onNavigateToGraph, this.onNavigateToFb});
 
   final VoidCallback? onNavigateToGraph;
+  final VoidCallback? onNavigateToFb;
 
   static const backgroundColor = Color(0xFFE6E9EF);
   static const startButtonColor = Color(0xFF6DBB81);
@@ -150,7 +151,8 @@ class _AlarmPageState extends State<AlarmPage> {
     if (result != null) {
       await _showMemoDialog(result.session.id);
       if (!mounted) return;
-      widget.onNavigateToGraph?.call();
+      // メモ保存後は分析(fb)画面へ遷移
+      widget.onNavigateToFb?.call();
     }
   }
 
