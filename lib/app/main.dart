@@ -59,7 +59,7 @@ class _MainShellState extends State<MainShell> {
           body: IndexedStack(
             index: index,
             children: [
-              const AlarmPage(),
+              AlarmPage(onNavigateToGraph: () => _mainTab.select(1)),
               GraphPage(),
               _PlaceholderTab(label: 'リスト'),
               _PlaceholderTab(label: '統計'),

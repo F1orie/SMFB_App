@@ -14,7 +14,7 @@ class GraphPage extends StatefulWidget {
 }
 
 class _GraphPageState extends State<GraphPage> {
-  DateTime _selectedDate = DateTime(2026, 4, 21);
+  DateTime _selectedDate = DateTime.now();
 
   final Map<String, Set<String>> _selectedActionsByDate = {};
 
