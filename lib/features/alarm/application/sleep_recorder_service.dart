@@ -34,7 +34,7 @@ class SleepRecorderService {
   SleepSession? get currentSession => _currentSession;
   List<SleepEpoch> get epochs => List.unmodifiable(_epochs);
 
-  void start() {
+  void start({int? alarmTimeEpochMs}) {
     if (stateNotifier.value == RecorderState.recording) return;
 
     final int now = DateTime.now().millisecondsSinceEpoch;
@@ -42,6 +42,7 @@ class SleepRecorderService {
     _currentSession = SleepSession(
       id: 'session_$now',
       startAtEpochMs: now,
+      alarmTimeEpochMs: alarmTimeEpochMs,
       status: SleepSessionStatus.recording,
       algoVersion: DepthScoring.algoVersion,
       samplingPeriodSec: 60,
@@ -76,6 +77,7 @@ class SleepRecorderService {
       id: session.id,
       startAtEpochMs: session.startAtEpochMs,
       endAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+      alarmTimeEpochMs: session.alarmTimeEpochMs,
       status: SleepSessionStatus.finished,
       algoVersion: session.algoVersion,
       samplingPeriodSec: session.samplingPeriodSec,

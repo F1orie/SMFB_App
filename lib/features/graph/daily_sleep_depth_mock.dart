@@ -49,6 +49,8 @@ class DailySleepDepthMock {
     required this.points,
     required this.summary,
     required this.memo,
+    this.alarmMinuteFromZero,
+    this.actualWakeMinuteFromZero,
   });
 
   final String rangeLabel;
@@ -57,6 +59,10 @@ class DailySleepDepthMock {
   final List<SleepDepthPoint> points;
   final SleepSummaryMock summary;
   final String memo;
+  /// 設定起床時刻（グラフ開始からの経過分）
+  final int? alarmMinuteFromZero;
+  /// 実際のSTOP時刻（グラフ開始からの経過分）
+  final int? actualWakeMinuteFromZero;
 }
 
 double _clamp01(double v) {

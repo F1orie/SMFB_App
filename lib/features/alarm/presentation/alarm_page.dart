@@ -1,9 +1,23 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../application/dummy_sleep_data_service.dart';
 import '../application/sleep_recorder_service.dart';
 import '../infrastructure/sleep_repository.dart';
+
+final _notifications = FlutterLocalNotificationsPlugin();
+
+Future<void> initAlarmNotifications() async {
+  if (kIsWeb) return;
+  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await _notifications.initialize(
+    settings: const InitializationSettings(android: android),
+  );
+}
 
 const _alarmMinuteGranularity = 5;
 
@@ -32,6 +46,7 @@ class _AlarmPageState extends State<AlarmPage> {
 
   SleepRecordResult? _lastResult;
   String? _lastDummySessionId;
+  Timer? _notificationTimer;
 
   int _hour = 7;
   int _minute = 15;
@@ -43,6 +58,7 @@ class _AlarmPageState extends State<AlarmPage> {
     _minuteCtrl = FixedExtentScrollController(
       initialItem: _minute ~/ _alarmMinuteGranularity,
     );
+    initAlarmNotifications();
   }
 
   @override
@@ -50,6 +66,7 @@ class _AlarmPageState extends State<AlarmPage> {
     _hourCtrl.dispose();
     _minuteCtrl.dispose();
     _recorderService.dispose();
+    _notificationTimer?.cancel();
     super.dispose();
   }
 
@@ -70,7 +87,33 @@ class _AlarmPageState extends State<AlarmPage> {
   }
 
   void _startRecording() {
-    _recorderService.start();
+    final now = DateTime.now();
+    var alarmDt = DateTime(now.year, now.month, now.day, _hour, _minute);
+    if (!alarmDt.isAfter(now)) {
+      alarmDt = alarmDt.add(const Duration(days: 1));
+    }
+    final alarmMs = alarmDt.millisecondsSinceEpoch;
+
+    _recorderService.start(alarmTimeEpochMs: alarmMs);
+
+    _notificationTimer?.cancel();
+    if (!kIsWeb) {
+      _notificationTimer = Timer(alarmDt.difference(now), () {
+        _notifications.show(
+          id: 0,
+          title: '起床時間です',
+          body: 'STOPを押して計測を終了してください',
+          notificationDetails: const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'alarm_channel',
+              'アラーム',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+          ),
+        );
+      });
+    }
 
     setState(() {
       _lastResult = null;
