@@ -19,6 +19,10 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   String? _aiAdvice;
   bool _isLoadingAi = false;
   bool _hasError = false;
+  String? _errorDetail;
+
+  /// セッションIDごとにAI分析結果をキャッシュ（アプリ起動中は再利用）
+  static final Map<String, String> _adviceCache = {};
 
   @override
   void initState() {
@@ -44,6 +48,14 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _memo = memo;
     });
 
+    // キャッシュに同じセッションの結果があれば API を呼ばず再利用
+    if (_adviceCache.containsKey(latest.id)) {
+      setState(() {
+        _aiAdvice = _adviceCache[latest.id];
+      });
+      return;
+    }
+
     await _runAiAnalysis(latest, memo);
   }
 
@@ -51,6 +63,7 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     setState(() {
       _isLoadingAi = true;
       _hasError = false;
+      _errorDetail = null;
       _aiAdvice = null;
     });
 
@@ -82,6 +95,9 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         userMessage: '昨夜の睡眠データを分析して、改善のためのアドバイスをください。',
       );
 
+      // キャッシュに保存して次回以降の API 呼び出しを省略
+      _adviceCache[session.id] = advice;
+
       if (mounted) {
         setState(() {
           _aiAdvice = advice;
@@ -93,6 +109,7 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         setState(() {
           _isLoadingAi = false;
           _hasError = true;
+          _errorDetail = e.toString();
         });
       }
     }
@@ -284,6 +301,21 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
                   style: TextStyle(color: Colors.red)),
             ],
           ),
+          if (_errorDetail != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Text(
+                _errorDetail!,
+                style: TextStyle(fontSize: 11, color: Colors.red.shade800),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           ElevatedButton.icon(
             onPressed: () => _runAiAnalysis(session, _memo ?? ''),

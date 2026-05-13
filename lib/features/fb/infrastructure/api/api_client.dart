@@ -5,7 +5,7 @@ import 'package:smf_app/features/fb/infrastructure/log/app_logger.dart';
 
 /// Google Gemini API クライアント
 class ApiClient {
-  static const String _model = 'gemini-1.5-flash';
+  static const String _model = 'gemini-2.0-flash';
   static String get _endpoint =>
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent'
       '?key=${AnalysisConfig.geminiApiKey}';
@@ -69,8 +69,10 @@ class ApiClient {
         AppLogger.d('Gemini 応答: $text');
         return text;
       } else {
-        AppLogger.e('Gemini API エラー: ${response.statusCode} ${response.body}');
-        throw Exception('Gemini API エラー (${response.statusCode})');
+        final body = response.body;
+        AppLogger.e('Gemini API エラー: ${response.statusCode} $body');
+        final snippet = body.length > 300 ? body.substring(0, 300) : body;
+        throw Exception('HTTP ${response.statusCode}: $snippet');
       }
     } catch (e) {
       AppLogger.e('Gemini API 通信エラー', e);
