@@ -24,4 +24,30 @@ class SleepSession {
   final int tzOffsetMin;
   final String appVersion;
   final String syncState;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'startAtEpochMs': startAtEpochMs,
+        'endAtEpochMs': endAtEpochMs,
+        'alarmTimeEpochMs': alarmTimeEpochMs,
+        'status': status.name,
+        'algoVersion': algoVersion,
+        'samplingPeriodSec': samplingPeriodSec,
+        'tzOffsetMin': tzOffsetMin,
+        'appVersion': appVersion,
+        'syncState': syncState,
+      };
+
+  factory SleepSession.fromJson(Map<String, dynamic> json) => SleepSession(
+        id: json['id'] as String,
+        startAtEpochMs: json['startAtEpochMs'] as int,
+        endAtEpochMs: json['endAtEpochMs'] as int?,
+        alarmTimeEpochMs: json['alarmTimeEpochMs'] as int?,
+        status: SleepSessionStatus.values.byName(json['status'] as String),
+        algoVersion: json['algoVersion'] as String,
+        samplingPeriodSec: json['samplingPeriodSec'] as int,
+        tzOffsetMin: json['tzOffsetMin'] as int,
+        appVersion: json['appVersion'] as String,
+        syncState: json['syncState'] as String,
+      );
 }
