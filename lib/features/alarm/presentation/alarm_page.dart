@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../application/dummy_sleep_data_service.dart';
 import '../application/sleep_recorder_service.dart';
+import '../domain/sleep_note.dart';
 import '../infrastructure/sleep_repository.dart';
 
 final _notifications = FlutterLocalNotificationsPlugin();
@@ -147,8 +148,52 @@ class _AlarmPageState extends State<AlarmPage> {
     );
 
     if (result != null) {
+      await _showMemoDialog(result.session.id);
+      if (!mounted) return;
       widget.onNavigateToGraph?.call();
     }
+  }
+
+  Future<void> _showMemoDialog(String sessionId) async {
+    final ctrl = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('今夜の睡眠メモ'),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: 'メモを入力してください',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('スキップ'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await SleepRepository.instance.saveNote(
+                SleepNote(
+                  sessionId: sessionId,
+                  createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+                  memo: ctrl.text,
+                  hadAlcohol: false,
+                  hadCaffeine: false,
+                  didExercise: false,
+                ),
+              );
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
   }
 
   Future<void> _createDummyData() async {
