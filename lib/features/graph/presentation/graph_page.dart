@@ -495,9 +495,9 @@ class _MemoTabState extends State<_MemoTab> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          Container(
+          Expanded(
+            child: Container(
             width: double.infinity,
-            height: 180,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.05),
@@ -523,6 +523,7 @@ class _MemoTabState extends State<_MemoTab> {
                 if (_saved) setState(() => _saved = false);
               },
             ),
+          ),
           ),
           const SizedBox(height: 10),
           if (canSave)
