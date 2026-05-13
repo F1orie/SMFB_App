@@ -112,6 +112,11 @@ class SleepRepository {
         _notes.where((n) => n.sessionId == sessionId),
       );
 
+  Future<void> removeSession(String sessionId) async {
+    _sessions.removeWhere((s) => s.id == sessionId);
+    await _persistSessions();
+  }
+
   Future<void> removeEpochsForSession(String sessionId) async {
     _epochs.removeWhere((e) => e.sessionId == sessionId);
     await _persistEpochs();
