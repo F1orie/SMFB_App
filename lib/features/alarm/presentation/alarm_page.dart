@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 
 import '../application/dummy_sleep_data_service.dart';
 import '../application/sleep_recorder_service.dart';
+import '../infrastructure/sleep_repository.dart';
 
 const _alarmMinuteGranularity = 5;
 
 /// 参考 UI に近いアラーム設定画面
 class AlarmPage extends StatefulWidget {
-  const AlarmPage({super.key});
+  const AlarmPage({super.key, this.onNavigateToGraph});
+
+  final VoidCallback? onNavigateToGraph;
 
   static const backgroundColor = Color(0xFFE6E9EF);
   static const startButtonColor = Color(0xFF6DBB81);
@@ -78,8 +81,15 @@ class _AlarmPageState extends State<AlarmPage> {
     );
   }
 
-  void _stopRecording() {
+  Future<void> _stopRecording() async {
     final result = _recorderService.stop();
+
+    if (result != null) {
+      await SleepRepository.instance.saveSession(result.session);
+      await SleepRepository.instance.saveEpochs(result.epochs);
+    }
+
+    if (!mounted) return;
 
     setState(() {
       _lastResult = result;
@@ -92,6 +102,10 @@ class _AlarmPageState extends State<AlarmPage> {
         ),
       ),
     );
+
+    if (result != null) {
+      widget.onNavigateToGraph?.call();
+    }
   }
 
   Future<void> _createDummyData() async {
