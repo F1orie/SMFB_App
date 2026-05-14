@@ -36,41 +36,67 @@ class ApiClient {
 
     AppLogger.d('Gemini API 呼び出し: $userMessage');
 
-    try {
-      final response = await _client
-          .post(
-            Uri.parse(_endpoint),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'system_instruction': {
-                'parts': [{'text': systemPrompt}],
-              },
-              'contents': contents,
-              'generationConfig': {'maxOutputTokens': 500},
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
+    final body = jsonEncode({
+      'system_instruction': {
+        'parts': [{'text': systemPrompt}],
+      },
+      'contents': contents,
+      'generationConfig': {'maxOutputTokens': 1500},
+    });
 
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data =
-            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        final candidates = data['candidates'] as List<dynamic>;
-        final content =
-            (candidates.first as Map<String, dynamic>)['content']
-                as Map<String, dynamic>;
-        final parts = content['parts'] as List<dynamic>;
-        final text = (parts.first as Map<String, dynamic>)['text'] as String;
-        AppLogger.d('Gemini 応答: $text');
-        return text;
-      } else {
-        final body = response.body;
-        AppLogger.e('Gemini API エラー: ${response.statusCode} $body');
-        final snippet = body.length > 300 ? body.substring(0, 300) : body;
-        throw Exception('HTTP ${response.statusCode}: $snippet');
+    // 503 は一時的な過負荷なので最大2回リトライ
+    for (var attempt = 0; attempt <= 2; attempt++) {
+      try {
+        final response = await _client
+            .post(
+              Uri.parse(_endpoint),
+              headers: {'Content-Type': 'application/json'},
+              body: body,
+            )
+            .timeout(const Duration(seconds: 30));
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final data =
+              jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+          final candidates = data['candidates'] as List<dynamic>;
+          final content =
+              (candidates.first as Map<String, dynamic>)['content']
+                  as Map<String, dynamic>;
+          final parts = content['parts'] as List<dynamic>;
+          final raw = (parts.first as Map<String, dynamic>)['text'] as String;
+          final text = _stripMarkdown(raw);
+          AppLogger.d('Gemini 応答: $text');
+          return text;
+        } else if (response.statusCode == 503 && attempt < 2) {
+          AppLogger.d('503 過負荷 - ${attempt + 1}回目リトライ待機中');
+          await Future.delayed(const Duration(seconds: 3));
+          continue;
+        } else {
+          final responseBody = response.body;
+          AppLogger.e('Gemini API エラー: ${response.statusCode} $responseBody');
+          final snippet = responseBody.length > 300
+              ? responseBody.substring(0, 300)
+              : responseBody;
+          throw Exception('HTTP ${response.statusCode}: $snippet');
+        }
+      } catch (e) {
+        if (attempt < 2 && e is! Exception) {
+          await Future.delayed(const Duration(seconds: 3));
+          continue;
+        }
+        AppLogger.e('Gemini API 通信エラー', e);
+        rethrow;
       }
-    } catch (e) {
-      AppLogger.e('Gemini API 通信エラー', e);
-      rethrow;
     }
+    throw Exception('リトライ上限に達しました');
+  }
+
+  String _stripMarkdown(String text) {
+    return text
+        .replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m.group(1)!)
+        .replaceAllMapped(RegExp(r'\*(.+?)\*'), (m) => m.group(1)!)
+        .replaceAll(RegExp(r'#+\s'), '')
+        .replaceAllMapped(RegExp(r'`(.+?)`'), (m) => m.group(1)!)
+        .trim();
   }
 }
