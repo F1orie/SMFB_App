@@ -65,7 +65,8 @@ class _ListPageState extends State<ListPage> {
               const SizedBox(height: 4),
               Text(note.memo),
             ],
-            if (note != null) ...[
+            if (note != null &&
+                (note.hadAlcohol || note.hadCaffeine || note.didExercise)) ...[
               const SizedBox(height: 12),
               const Text('記録', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),

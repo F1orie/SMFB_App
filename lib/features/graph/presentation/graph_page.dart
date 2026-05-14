@@ -266,6 +266,7 @@ class _GraphPageState extends State<GraphPage> {
                           _ActionTab(
                             selectedDate: _selectedDate,
                             selectedActionsByDate: _selectedActionsByDate,
+                            sessionId: _mock.sessionId,
                           ),
                         ],
                       ),
@@ -466,15 +467,18 @@ class _MemoTabState extends State<_MemoTab> {
     final sessionId = widget.sessionId;
     if (sessionId == null) return;
     final repo = SleepRepository.instance;
+    // 既存ノートのアクションフラグを保持して上書きしない
+    final existing = repo.notesForSession(sessionId);
+    final prev = existing.isNotEmpty ? existing.last : null;
     await repo.removeNotesForSession(sessionId);
     await repo.saveNote(
       SleepNote(
         sessionId: sessionId,
-        createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+        createdAtEpochMs: prev?.createdAtEpochMs ?? DateTime.now().millisecondsSinceEpoch,
         memo: _ctrl.text,
-        hadAlcohol: false,
-        hadCaffeine: false,
-        didExercise: false,
+        hadAlcohol: prev?.hadAlcohol ?? false,
+        hadCaffeine: prev?.hadCaffeine ?? false,
+        didExercise: prev?.didExercise ?? false,
       ),
     );
     if (mounted) setState(() => _saved = true);
@@ -550,10 +554,12 @@ class _ActionTab extends StatefulWidget {
   const _ActionTab({
     required this.selectedDate,
     required this.selectedActionsByDate,
+    this.sessionId,
   });
 
   final DateTime selectedDate;
   final Map<String, Set<String>> selectedActionsByDate;
+  final String? sessionId;
 
   @override
   State<_ActionTab> createState() => _ActionTabState();
@@ -569,22 +575,73 @@ class _ActionTabState extends State<_ActionTab> {
     '入浴',
   ];
 
+  // SleepNote フィールドと対応するアクション名
+  static const _noteActions = {'アルコール', 'カフェイン', '運動'};
+
   String get _dateKey {
     final date = widget.selectedDate;
     return '${date.year}-${date.month}-${date.day}';
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _syncFromNote();
+  }
+
+  @override
+  void didUpdateWidget(_ActionTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sessionId != widget.sessionId ||
+        oldWidget.selectedDate != widget.selectedDate) {
+      _syncFromNote();
+    }
+  }
+
+  // SleepNote → selectedActionsByDate に同期（表示の正とする）
+  void _syncFromNote() {
+    final sessionId = widget.sessionId;
+    if (sessionId == null) return;
+    final notes = SleepRepository.instance.notesForSession(sessionId);
+    if (notes.isEmpty) return;
+    final note = notes.last;
+    final sel = widget.selectedActionsByDate.putIfAbsent(_dateKey, () => <String>{});
+    note.hadAlcohol ? sel.add('アルコール') : sel.remove('アルコール');
+    note.hadCaffeine ? sel.add('カフェイン') : sel.remove('カフェイン');
+    note.didExercise ? sel.add('運動') : sel.remove('運動');
+    if (mounted) setState(() {});
+  }
+
   void _toggleAction(String action) {
     setState(() {
-      final selectedActions =
-          widget.selectedActionsByDate.putIfAbsent(_dateKey, () => <String>{});
-      if (selectedActions.contains(action)) {
-        selectedActions.remove(action);
+      final sel = widget.selectedActionsByDate.putIfAbsent(_dateKey, () => <String>{});
+      if (sel.contains(action)) {
+        sel.remove(action);
       } else {
-        selectedActions.add(action);
+        sel.add(action);
       }
     });
     _saveActionSelections();
+    if (_noteActions.contains(action)) _updateNote();
+  }
+
+  // アルコール/カフェイン/運動 の変更を SleepNote に書き戻す
+  Future<void> _updateNote() async {
+    final sessionId = widget.sessionId;
+    if (sessionId == null) return;
+    final sel = widget.selectedActionsByDate[_dateKey] ?? <String>{};
+    final repo = SleepRepository.instance;
+    final notes = repo.notesForSession(sessionId);
+    final prev = notes.isNotEmpty ? notes.last : null;
+    await repo.removeNotesForSession(sessionId);
+    await repo.saveNote(SleepNote(
+      sessionId: sessionId,
+      createdAtEpochMs: prev?.createdAtEpochMs ?? DateTime.now().millisecondsSinceEpoch,
+      memo: prev?.memo ?? '',
+      hadAlcohol: sel.contains('アルコール'),
+      hadCaffeine: sel.contains('カフェイン'),
+      didExercise: sel.contains('運動'),
+    ));
   }
 
   Future<void> _saveActionSelections() async {
