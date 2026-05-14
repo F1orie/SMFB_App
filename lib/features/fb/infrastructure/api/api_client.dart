@@ -5,7 +5,7 @@ import 'package:smf_app/features/fb/infrastructure/log/app_logger.dart';
 
 /// Google Gemini API クライアント
 class ApiClient {
-  static const String _model = 'gemini-2.0-flash-lite';
+  static const String _model = 'gemini-2.5-flash';
   static String get _endpoint =>
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent'
       '?key=${AnalysisConfig.geminiApiKey}';
