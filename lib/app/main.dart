@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:smf_app/common/navigation/main_tab_index_notifier.dart';
 import 'package:smf_app/common/ui/navigation/app_bottom_navigation_bar.dart';
+import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/alarm/presentation/alarm_page.dart';
 import 'package:smf_app/features/fb/presentation/pages/fb_dashboard_page.dart';
 import 'package:smf_app/features/graph/presentation/graph_page.dart';
@@ -45,13 +46,29 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late final MainTabIndexNotifier _mainTab = MainTabIndexNotifier();
 
-  /// メモ保存後に fb 画面を再生成するためのカウンタ
   int _fbRebuildKey = 0;
+  int _graphRebuildKey = 0;
+  DateTime? _graphTargetDate;
+  SleepSession? _fbTargetSession;
 
   void _navigateToFb() {
-    // key を変えて FbDashboardPage を再生成し、最新データを表示する
+    _fbTargetSession = null;
     _fbRebuildKey++;
     _mainTab.select(5);
+  }
+
+  void _navigateToGraphDate(DateTime date) {
+    _graphTargetDate = date;
+    _graphRebuildKey++;
+    _mainTab.select(1);
+    setState(() {});
+  }
+
+  void _navigateToFbSession(SleepSession session) {
+    _fbTargetSession = session;
+    _fbRebuildKey++;
+    _mainTab.select(5);
+    setState(() {});
   }
 
   @override
@@ -74,11 +91,20 @@ class _MainShellState extends State<MainShell> {
                 onNavigateToGraph: () => _mainTab.select(1),
                 onNavigateToFb: _navigateToFb,
               ),
-              GraphPage(),
-              const ListPage(),
+              GraphPage(
+                key: ValueKey(_graphRebuildKey),
+                initialDate: _graphTargetDate,
+              ),
+              ListPage(
+                onNavigateToGraph: _navigateToGraphDate,
+                onNavigateToFb: _navigateToFbSession,
+              ),
               _PlaceholderTab(label: '統計'),
               _PlaceholderTab(label: '設定'),
-              FbDashboardPage(key: ValueKey(_fbRebuildKey)),
+              FbDashboardPage(
+                key: ValueKey(_fbRebuildKey),
+                targetSession: _fbTargetSession,
+              ),
               _PlaceholderTab(label: 'モーション'),
             ],
           ),

@@ -4,7 +4,14 @@ import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 
 class ListPage extends StatefulWidget {
-  const ListPage({super.key});
+  const ListPage({
+    super.key,
+    this.onNavigateToGraph,
+    this.onNavigateToFb,
+  });
+
+  final void Function(DateTime date)? onNavigateToGraph;
+  final void Function(SleepSession session)? onNavigateToFb;
 
   @override
   State<ListPage> createState() => _ListPageState();
@@ -40,6 +47,60 @@ class _ListPageState extends State<ListPage> {
     final mins =
         (s.endAtEpochMs! - s.startAtEpochMs) ~/ 1000 ~/ 60;
     return '${mins ~/ 60}時間${mins % 60}分';
+  }
+
+  void _showActionSheet(SleepSession session, SleepNote? note) {
+    final start = DateTime.fromMillisecondsSinceEpoch(session.startAtEpochMs);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  '${_dateLabel(start)}の睡眠記録',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.show_chart, color: Colors.blue),
+                title: const Text('グラフを見る'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onNavigateToGraph?.call(start);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.auto_awesome, color: Colors.amber),
+                title: const Text('AI分析を見る'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onNavigateToFb?.call(session);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.grey),
+                title: const Text('詳細'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showDetail(session, note);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showDetail(SleepSession session, SleepNote? note) {
@@ -162,7 +223,7 @@ class _ListPageState extends State<ListPage> {
               ? _timeLabel(session.endAtEpochMs!)
               : '--:--',
           durationLabel: _durationLabel(session),
-          onTap: () => _showDetail(session, note),
+          onTap: () => _showActionSheet(session, note),
         );
       },
     );
