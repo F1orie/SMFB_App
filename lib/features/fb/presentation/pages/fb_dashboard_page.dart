@@ -6,7 +6,10 @@ import 'package:smf_app/features/fb/infrastructure/api/api_client.dart';
 import '../dialogs/fb_chat_dialog.dart';
 
 class FbDashboardPage extends StatefulWidget {
-  const FbDashboardPage({super.key});
+  const FbDashboardPage({super.key, this.targetSession});
+
+  /// 指定がある場合そのセッションを表示、null なら最新セッション
+  final SleepSession? targetSession;
 
   @override
   State<FbDashboardPage> createState() => _FbDashboardPageState();
@@ -32,15 +35,20 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   }
 
   Future<void> _loadData() async {
-    final sessions = SleepRepository.instance.allSessions;
-    if (sessions.isEmpty) {
+    // targetSession 指定があればそれを使い、なければ最新セッション
+    final target = widget.targetSession ??
+        (SleepRepository.instance.allSessions.isNotEmpty
+            ? SleepRepository.instance.allSessions.last
+            : null);
+
+    if (target == null) {
       setState(() {
         _session = null;
       });
       return;
     }
 
-    final latest = sessions.last;
+    final latest = target;
     final notes = SleepRepository.instance.notesForSession(latest.id);
     final memo = notes.isNotEmpty ? notes.last.memo : '';
 

@@ -11,14 +11,16 @@ import '../daily_sleep_depth_mock.dart';
 ///
 /// 現フェーズは UI のみで、Android で取得した実データは未実装。
 class GraphPage extends StatefulWidget {
-  const GraphPage({super.key});
+  const GraphPage({super.key, this.initialDate});
+
+  final DateTime? initialDate;
 
   @override
   State<GraphPage> createState() => _GraphPageState();
 }
 
 class _GraphPageState extends State<GraphPage> {
-  DateTime _selectedDate = DateTime.now();
+  late DateTime _selectedDate;
 
   final Map<String, Set<String>> _selectedActionsByDate = {};
 
@@ -28,6 +30,7 @@ class _GraphPageState extends State<GraphPage> {
   @override
   void initState() {
     super.initState();
+    _selectedDate = widget.initialDate ?? DateTime.now();
     _loadActionSelections();
   }
 
