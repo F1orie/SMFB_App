@@ -6,6 +6,7 @@ import 'package:smf_app/common/ui/navigation/app_bottom_navigation_bar.dart';
 import 'package:smf_app/features/alarm/presentation/alarm_page.dart';
 import 'package:smf_app/features/fb/presentation/pages/fb_dashboard_page.dart';
 import 'package:smf_app/features/graph/presentation/graph_page.dart';
+import 'package:smf_app/features/list/presentation/list_page.dart';
 
 class SmfApp extends StatelessWidget {
   const SmfApp({super.key});
@@ -74,7 +75,7 @@ class _MainShellState extends State<MainShell> {
                 onNavigateToFb: _navigateToFb,
               ),
               GraphPage(),
-              _PlaceholderTab(label: 'リスト'),
+              const ListPage(),
               _PlaceholderTab(label: '統計'),
               _PlaceholderTab(label: '設定'),
               FbDashboardPage(key: ValueKey(_fbRebuildKey)),
