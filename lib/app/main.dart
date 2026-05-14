@@ -54,7 +54,7 @@ class _MainShellState extends State<MainShell> {
   void _navigateToFb() {
     _fbTargetSession = null;
     _fbRebuildKey++;
-    _mainTab.select(5);
+    _mainTab.select(4);
   }
 
   void _navigateToGraphDate(DateTime date) {
@@ -67,7 +67,7 @@ class _MainShellState extends State<MainShell> {
   void _navigateToFbSession(SleepSession session) {
     _fbTargetSession = session;
     _fbRebuildKey++;
-    _mainTab.select(5);
+    _mainTab.select(4);
     setState(() {});
   }
 
@@ -99,7 +99,6 @@ class _MainShellState extends State<MainShell> {
                 onNavigateToGraph: _navigateToGraphDate,
                 onNavigateToFb: _navigateToFbSession,
               ),
-              _PlaceholderTab(label: '統計'),
               _PlaceholderTab(label: '設定'),
               FbDashboardPage(
                 key: ValueKey(_fbRebuildKey),
