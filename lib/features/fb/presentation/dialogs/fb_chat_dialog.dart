@@ -1,5 +1,7 @@
 // lib/features/fb/presentation/dialogs/fb_chat_dialog.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/fb/infrastructure/api/api_client.dart';
 
@@ -25,6 +27,32 @@ class _FbChatDialogState extends State<FbChatDialog> {
   /// [{role: 'user'|'assistant', content: '...'}]
   final List<Map<String, String>> _messages = [];
   bool _isSending = false;
+
+  String get _prefsKey => 'fb_chat_history_${widget.session.id}';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefsKey);
+    if (raw == null) return;
+    final list = (jsonDecode(raw) as List<dynamic>)
+        .map((e) => Map<String, String>.from(e as Map))
+        .toList();
+    if (mounted) {
+      setState(() => _messages.addAll(list));
+      _scrollToBottom();
+    }
+  }
+
+  Future<void> _saveHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsKey, jsonEncode(_messages));
+  }
 
   String get _systemPrompt {
     final startDt =
@@ -86,6 +114,7 @@ class _FbChatDialogState extends State<FbChatDialog> {
           _isSending = false;
         });
         _scrollToBottom();
+        await _saveHistory();
       }
     } catch (e) {
       if (mounted) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 import 'package:smf_app/features/fb/infrastructure/api/api_client.dart';
@@ -48,10 +49,21 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _memo = memo;
     });
 
-    // キャッシュに同じセッションの結果があれば API を呼ばず再利用
+    // メモリキャッシュにあれば即返す
     if (_adviceCache.containsKey(latest.id)) {
       setState(() {
         _aiAdvice = _adviceCache[latest.id];
+      });
+      return;
+    }
+
+    // SharedPreferences から保存済みアドバイスを読み込む
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('fb_ai_advice_${latest.id}');
+    if (saved != null) {
+      _adviceCache[latest.id] = saved;
+      setState(() {
+        _aiAdvice = saved;
       });
       return;
     }
@@ -95,8 +107,10 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         userMessage: '昨夜の睡眠データを分析して、改善のためのアドバイスをください。',
       );
 
-      // キャッシュに保存して次回以降の API 呼び出しを省略
+      // メモリキャッシュと SharedPreferences に保存
       _adviceCache[session.id] = advice;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('fb_ai_advice_${session.id}', advice);
 
       if (mounted) {
         setState(() {
