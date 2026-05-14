@@ -5,7 +5,7 @@ import 'package:smf_app/features/fb/infrastructure/log/app_logger.dart';
 
 /// Google Gemini API クライアント
 class ApiClient {
-  static const String _model = 'gemini-2.0-flash';
+  static const String _model = 'gemini-2.0-flash-lite';
   static String get _endpoint =>
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent'
       '?key=${AnalysisConfig.geminiApiKey}';
@@ -26,15 +26,11 @@ class ApiClient {
       for (final h in history)
         {
           'role': h['role'] == 'assistant' ? 'model' : h['role'],
-          'parts': [
-            {'text': h['content']},
-          ],
+          'parts': [{'text': h['content']}],
         },
       {
         'role': 'user',
-        'parts': [
-          {'text': userMessage},
-        ],
+        'parts': [{'text': userMessage}],
       },
     ];
 
@@ -47,9 +43,7 @@ class ApiClient {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'system_instruction': {
-                'parts': [
-                  {'text': systemPrompt},
-                ],
+                'parts': [{'text': systemPrompt}],
               },
               'contents': contents,
               'generationConfig': {'maxOutputTokens': 500},
