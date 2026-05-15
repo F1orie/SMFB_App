@@ -71,81 +71,82 @@ class _AlarmPageState extends State<AlarmPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
-              const SizedBox(height: 24),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          flex: 6,
-                          child: _AlarmTimePickerCard(
-                            itemExtent: _itemExtent,
-                            borderColor: AlarmPage.pickerBorderColor,
-                            hourCtrl: _hourCtrl,
-                            minuteCtrl: _minuteCtrl,
-                            onHourChanged: (h) => setState(() => _hour = h),
-                            onMinuteChanged: (m) => setState(() => _minute = m),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        _SideActionButtons(
-                          onMemo: () {},
-                          onCheck: () {},
-                          onShare: () {},
-                          onMic: () {},
-                          onAudio: () {},
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'アラーム設定',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _wakeWindowLabel(),
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AlarmPage.startButtonColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: const StadiumBorder(),
-                    textStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+                  const SizedBox(height: 24),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: _AlarmTimePickerCard(
+                                itemExtent: _itemExtent,
+                                borderColor: AlarmPage.pickerBorderColor,
+                                hourCtrl: _hourCtrl,
+                                minuteCtrl: _minuteCtrl,
+                                onHourChanged: (h) => setState(() => _hour = h),
+                                onMinuteChanged: (m) =>
+                                    setState(() => _minute = m),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            _SideActionButtons(
+                              onMemo: () {},
+                              onCheck: () {},
+                              onShare: () {},
+                              onMic: () {},
+                              onAudio: () {},
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
-                  onPressed: () {},
-                  child: const Text('START'),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'アラーム設定',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _wakeWindowLabel(),
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AlarmPage.startButtonColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      onPressed: () {},
+                      child: const Text('START'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const _AdBannerPlaceholder(),
+                  const SizedBox(height: 8),
+                ],
               ),
-              const SizedBox(height: 12),
-              const _AdBannerPlaceholder(),
-              const SizedBox(height: 8),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
+        );
   }
 }
 
