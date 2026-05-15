@@ -22,66 +22,66 @@ class GraphPage extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            const SizedBox(height: 10),
-            _DateRangeHeader(text: _mock.rangeLabel),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SizedBox(
-                height: 240,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.03),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: CustomPaint(
-                      painter: SleepDepthAreaChartPainter(
-                        points: _mock.points,
-                        xTickStartHour: _mock.xTickStartHour,
-                        xTickEndHour: _mock.xTickEndHour,
+                const SizedBox(height: 10),
+                _DateRangeHeader(text: _mock.rangeLabel),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SizedBox(
+                    height: 240,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
                       ),
-                      child: const SizedBox.expand(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: CustomPaint(
+                          painter: SleepDepthAreaChartPainter(
+                            points: _mock.points,
+                            xTickStartHour: _mock.xTickStartHour,
+                            xTickEndHour: _mock.xTickEndHour,
+                          ),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _GraphActionRow(),
-            const SizedBox(height: 10),
-            Expanded(
-              child: DefaultTabController(
-                length: 4,
-                child: Column(
-                  children: [
-                    _GraphSubTabs(
-                      // 今回はデータ以外はプレースホルダ
-                      tabs: const ['データ', 'メモ', '行動', '寝言'],
+                const SizedBox(height: 10),
+                _GraphActionRow(),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: DefaultTabController(
+                    length: 4,
+                    child: Column(
+                      children: [
+                        _GraphSubTabs(
+                          // 今回はデータ以外はプレースホルダ
+                          tabs: const ['データ', 'メモ', '行動', '寝言'],
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              _DataTab(summary: summary),
+                              const _SimplePlaceholderTab(label: 'メモ'),
+                              const _SimplePlaceholderTab(label: '行動'),
+                              const _SimplePlaceholderTab(label: '寝言'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          _DataTab(summary: summary),
-                          const _SimplePlaceholderTab(label: 'メモ'),
-                          const _SimplePlaceholderTab(label: '行動'),
-                          const _SimplePlaceholderTab(label: '寝言'),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
   }
 }
 
