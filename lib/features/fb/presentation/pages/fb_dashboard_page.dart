@@ -159,7 +159,7 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('分析フィードバック'),
+        title: const Text('分析,フィードバック'),
       ),
       body: _session == null
           ? _buildNoData()
@@ -251,13 +251,13 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
 
           // AIアドバイスセクション
           const Text(
-            'AIアドバイス',
+            'アドバイス',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.blue.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(12),
