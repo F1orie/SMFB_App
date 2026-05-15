@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:smf_app/common/navigation/main_tab_index_notifier.dart';
 import 'package:smf_app/common/ui/navigation/app_bottom_navigation_bar.dart';
+import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/alarm/presentation/alarm_page.dart';
+import 'package:smf_app/features/fb/presentation/pages/fb_dashboard_page.dart';
 import 'package:smf_app/features/graph/presentation/graph_page.dart';
+import 'package:smf_app/features/list/presentation/list_page.dart';
 
 class SmfApp extends StatelessWidget {
   const SmfApp({super.key});
@@ -16,6 +20,16 @@ class SmfApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
         useMaterial3: true,
       ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ja'),
+        Locale('en'),
+      ],
+      locale: const Locale('ja'),
       home: const MainShell(),
     );
   }
@@ -31,6 +45,31 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late final MainTabIndexNotifier _mainTab = MainTabIndexNotifier();
+
+  int _fbRebuildKey = 0;
+  int _graphRebuildKey = 0;
+  DateTime? _graphTargetDate;
+  SleepSession? _fbTargetSession;
+
+  void _navigateToFb() {
+    _fbTargetSession = null;
+    _fbRebuildKey++;
+    _mainTab.select(4);
+  }
+
+  void _navigateToGraphDate(DateTime date) {
+    _graphTargetDate = date;
+    _graphRebuildKey++;
+    _mainTab.select(1);
+    setState(() {});
+  }
+
+  void _navigateToFbSession(SleepSession session) {
+    _fbTargetSession = session;
+    _fbRebuildKey++;
+    _mainTab.select(4);
+    setState(() {});
+  }
 
   @override
   void dispose() {
@@ -48,12 +87,23 @@ class _MainShellState extends State<MainShell> {
           body: IndexedStack(
             index: index,
             children: [
-              const AlarmPage(),
-              GraphPage(),
-              _PlaceholderTab(label: 'リスト'),
-              _PlaceholderTab(label: '統計'),
+              AlarmPage(
+                onNavigateToGraph: () => _mainTab.select(1),
+                onNavigateToFb: _navigateToFb,
+              ),
+              GraphPage(
+                key: ValueKey(_graphRebuildKey),
+                initialDate: _graphTargetDate,
+              ),
+              ListPage(
+                onNavigateToGraph: _navigateToGraphDate,
+                onNavigateToFb: _navigateToFbSession,
+              ),
               _PlaceholderTab(label: '設定'),
-              _PlaceholderTab(label: 'フィードバック'),
+              FbDashboardPage(
+                key: ValueKey(_fbRebuildKey),
+                targetSession: _fbTargetSession,
+              ),
               _PlaceholderTab(label: 'モーション'),
             ],
           ),
