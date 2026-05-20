@@ -1,15 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:smf_app/common/navigation/main_tab_index_notifier.dart';
 import 'package:smf_app/common/ui/navigation/app_bottom_navigation_bar.dart';
+import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/alarm/presentation/alarm_page.dart';
+import 'package:smf_app/features/fb/presentation/pages/fb_dashboard_page.dart';
 import 'package:smf_app/features/graph/presentation/graph_page.dart';
 import 'package:smf_app/features/motion/application/motion_state.dart';
 import 'package:smf_app/features/motion/infrastructure/motion_background_controller.dart';
 import 'package:smf_app/features/motion/presentation/motion_page.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
+import 'package:smf_app/features/list/presentation/list_page.dart';
 
 class SmfApp extends StatelessWidget {
   const SmfApp({super.key});
@@ -22,6 +26,16 @@ class SmfApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
         useMaterial3: true,
       ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ja'),
+        Locale('en'),
+      ],
+      locale: const Locale('ja'),
       home: const MainShell(),
     );
   }
@@ -37,6 +51,31 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late final MainTabIndexNotifier _mainTab = MainTabIndexNotifier();
+
+  int _fbRebuildKey = 0;
+  int _graphRebuildKey = 0;
+  DateTime? _graphTargetDate;
+  SleepSession? _fbTargetSession;
+
+  void _navigateToFb() {
+    _fbTargetSession = null;
+    _fbRebuildKey++;
+    _mainTab.select(4);
+  }
+
+  void _navigateToGraphDate(DateTime date) {
+    _graphTargetDate = date;
+    _graphRebuildKey++;
+    _mainTab.select(1);
+    setState(() {});
+  }
+
+  void _navigateToFbSession(SleepSession session) {
+    _fbTargetSession = session;
+    _fbRebuildKey++;
+    _mainTab.select(4);
+    setState(() {});
+  }
 
   @override
   void initState() {
@@ -88,9 +127,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           builder: (context, _) {
             final pendulum = MotionState.pendulumEnabled.value;
             final showInShell = MotionState.pendulumShowInShell.value;
-            // 振り子は IndexedStack の「上」に重ねる（各タブ背景は不透明のまま）。
-            // Android: バックグラウンド時のみシステムオーバーレイを出す（前面ではシェルと二重にならない）。
-            // IgnorePointer でタップは下の画面へ通す。
             return Scaffold(
               backgroundColor: pendulum ? Colors.transparent : null,
               body: Stack(
@@ -99,12 +135,23 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                   IndexedStack(
                     index: index,
                     children: [
-                      const AlarmPage(),
-                      GraphPage(),
-                      _PlaceholderTab(label: 'リスト'),
-                      _PlaceholderTab(label: '統計'),
+                      AlarmPage(
+                        onNavigateToGraph: () => _mainTab.select(1),
+                        onNavigateToFb: _navigateToFb,
+                      ),
+                      GraphPage(
+                        key: ValueKey(_graphRebuildKey),
+                        initialDate: _graphTargetDate,
+                      ),
+                      ListPage(
+                        onNavigateToGraph: _navigateToGraphDate,
+                        onNavigateToFb: _navigateToFbSession,
+                      ),
                       _PlaceholderTab(label: '設定'),
-                      _PlaceholderTab(label: 'フィードバック'),
+                      FbDashboardPage(
+                        key: ValueKey(_fbRebuildKey),
+                        targetSession: _fbTargetSession,
+                      ),
                       const MotionPage(),
                     ],
                   ),
