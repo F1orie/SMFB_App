@@ -1,28 +1,31 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import 'package:smf_app/app/main.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
+import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 
-
-// 作成したページのパスに合わせてインポートしてください
-import 'package:smf_app/features/fb/presentation/pages/fb_dashboard_page.dart';
-
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb) FlutterForegroundTask.initCommunicationPort();
+  await SleepRepository.instance.init();
+  runApp(const SmfApp());
 }
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Sleep Analysis App',
-      theme: ThemeData(
-        brightness: Brightness.dark, // 睡眠アプリなのでダークモードがおすすめ
-        primarySwatch: Colors.blue,
+/// flutter_overlay_window の OverlayService から呼ばれるエントリポイント。
+///
+/// 注意: プラグイン側が「アプリのメインDartエントリ」に対して `overlayMain` を探す実装のため、
+/// ここ（`lib/main.dart`）にトップレベル関数として置く必要がある。
+@pragma('vm:entry-point')
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Material(
+        color: Colors.transparent,
+        child: PendulumBallMotion(period: Duration(milliseconds: 5000)),
       ),
-      // ↓ ここを FbDashboardPage に変更することで、起動時に表示されます
-      home: const FbDashboardPage(), 
-    );
-  }
+    ),
+  );
 }

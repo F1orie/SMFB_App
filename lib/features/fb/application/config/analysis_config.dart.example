@@ -8,5 +8,5 @@
 class AnalysisConfig {
   static const double alertThreshold = 0.7;
 
-  static const String geminiApiKey = 'AIzaSyDlEQZyl4C2SGY-0E7JnV-nf5PC39NJZi4'; // ここに自分の API キーを貼り付ける
+  static const String geminiApiKey = ''; // ここに自分の API キーを貼り付ける
 }
