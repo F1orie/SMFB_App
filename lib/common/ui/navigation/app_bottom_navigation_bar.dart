@@ -30,19 +30,14 @@ class AppBottomNavigationBar extends StatelessWidget {
       label: 'リスト',
     ),
     NavigationDestination(
-      icon: Icon(Icons.stacked_bar_chart_outlined),
-      selectedIcon: Icon(Icons.stacked_bar_chart),
-      label: '統計',
-    ),
-    NavigationDestination(
       icon: Icon(Icons.settings_outlined),
       selectedIcon: Icon(Icons.settings),
       label: '設定',
     ),
     NavigationDestination(
-      icon: Icon(Icons.feedback_outlined),
-      selectedIcon: Icon(Icons.feedback),
-      label: 'フィードバック',
+      icon: Icon(Icons.analytics_outlined),
+      selectedIcon: Icon(Icons.analytics),
+      label: '分析',
     ),
     NavigationDestination(
       icon: Icon(Icons.refresh_outlined),
