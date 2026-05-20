@@ -1,4 +1,6 @@
-    import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:smf_app/common/navigation/main_tab_index_notifier.dart';
@@ -7,6 +9,10 @@ import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/alarm/presentation/alarm_page.dart';
 import 'package:smf_app/features/fb/presentation/pages/fb_dashboard_page.dart';
 import 'package:smf_app/features/graph/presentation/graph_page.dart';
+import 'package:smf_app/features/motion/application/motion_state.dart';
+import 'package:smf_app/features/motion/infrastructure/motion_background_controller.dart';
+import 'package:smf_app/features/motion/presentation/motion_page.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
 import 'package:smf_app/features/list/presentation/list_page.dart';
 
 class SmfApp extends StatelessWidget {
@@ -43,7 +49,7 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late final MainTabIndexNotifier _mainTab = MainTabIndexNotifier();
 
   int _fbRebuildKey = 0;
@@ -72,9 +78,39 @@ class _MainShellState extends State<MainShell> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _mainTab.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_onAppResumed());
+    } else if (state == AppLifecycleState.paused) {
+      unawaited(_onAppPaused());
+    }
+  }
+
+  Future<void> _onAppResumed() async {
+    await MotionBackgroundController.hideOverlayForInAppExperience();
+    if (MotionState.pendulumEnabled.value) {
+      MotionState.pendulumShowInShell.value = true;
+    }
+  }
+
+  Future<void> _onAppPaused() async {
+    if (!MotionState.pendulumEnabled.value) return;
+    if (!MotionBackgroundController.triesSystemOverlay) return;
+    MotionState.pendulumShowInShell.value = false;
+    await MotionBackgroundController.showOverlayWhenAppBackgrounded();
   }
 
   @override
@@ -83,34 +119,58 @@ class _MainShellState extends State<MainShell> {
       listenable: _mainTab,
       builder: (context, _) {
         final index = _mainTab.index;
-        return Scaffold(
-          body: IndexedStack(
-            index: index,
-            children: [
-              AlarmPage(
-                onNavigateToGraph: () => _mainTab.select(1),
-                onNavigateToFb: _navigateToFb,
+        return ListenableBuilder(
+          listenable: Listenable.merge([
+            MotionState.pendulumEnabled,
+            MotionState.pendulumShowInShell,
+          ]),
+          builder: (context, _) {
+            final pendulum = MotionState.pendulumEnabled.value;
+            final showInShell = MotionState.pendulumShowInShell.value;
+            return Scaffold(
+              backgroundColor: pendulum ? Colors.transparent : null,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  IndexedStack(
+                    index: index,
+                    children: [
+                      AlarmPage(
+                        onNavigateToGraph: () => _mainTab.select(1),
+                        onNavigateToFb: _navigateToFb,
+                      ),
+                      GraphPage(
+                        key: ValueKey(_graphRebuildKey),
+                        initialDate: _graphTargetDate,
+                      ),
+                      ListPage(
+                        onNavigateToGraph: _navigateToGraphDate,
+                        onNavigateToFb: _navigateToFbSession,
+                      ),
+                      _PlaceholderTab(label: '設定'),
+                      FbDashboardPage(
+                        key: ValueKey(_fbRebuildKey),
+                        targetSession: _fbTargetSession,
+                      ),
+                      const MotionPage(),
+                    ],
+                  ),
+                  if (pendulum && showInShell)
+                    const Positioned.fill(
+                      child: IgnorePointer(
+                        child: PendulumBallMotion(
+                          period: Duration(milliseconds: 5000),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              GraphPage(
-                key: ValueKey(_graphRebuildKey),
-                initialDate: _graphTargetDate,
+              bottomNavigationBar: AppBottomNavigationBar(
+                currentIndex: index,
+                onDestinationSelected: _mainTab.select,
               ),
-              ListPage(
-                onNavigateToGraph: _navigateToGraphDate,
-                onNavigateToFb: _navigateToFbSession,
-              ),
-              _PlaceholderTab(label: '設定'),
-              FbDashboardPage(
-                key: ValueKey(_fbRebuildKey),
-                targetSession: _fbTargetSession,
-              ),
-              _PlaceholderTab(label: 'モーション'),
-            ],
-          ),
-          bottomNavigationBar: AppBottomNavigationBar(
-            currentIndex: index,
-            onDestinationSelected: _mainTab.select,
-          ),
+            );
+          },
         );
       },
     );
