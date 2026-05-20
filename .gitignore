@@ -45,4 +45,5 @@ app.*.map.json
 /android/app/release
 
 .cursor/
-docs/share/rt/
+docs/share/rt/lib/features/fb/application/config/analysis_config.dart
+lib/features/fb/application/config/analysis_config.dart
