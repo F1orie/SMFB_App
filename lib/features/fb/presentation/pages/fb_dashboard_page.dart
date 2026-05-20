@@ -33,7 +33,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   AdviceType? _selectedAdviceType;
   String? _specialAdvice;
   bool _isLoadingSpecialAi = false;
-  bool _hasSpecialError = false;
 
   static final Map<String, String> _adviceCache = {};
 
@@ -127,7 +126,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     setState(() {
       _selectedAdviceType = type;
       _isLoadingSpecialAi = true;
-      _hasSpecialError = false;
       _specialAdvice = null;
     });
 
@@ -165,7 +163,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       if (mounted) {
         setState(() {
           _isLoadingSpecialAi = false;
-          _hasSpecialError = true;
           _specialAdvice = 'アドバイスの取得に失敗しました。再試行してください。';
         });
       }
