@@ -242,7 +242,6 @@ class _GraphPageState extends State<GraphPage> {
                         alarmMinuteFromZero: _mock.alarmMinuteFromZero,
                         actualWakeMinuteFromZero: _mock.actualWakeMinuteFromZero,
                       ),
-                      child: const SizedBox.expand(),
                     ),
                   ),
                 ),
@@ -274,14 +273,12 @@ class _GraphPageState extends State<GraphPage> {
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
   }
 }
 

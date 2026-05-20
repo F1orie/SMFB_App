@@ -274,7 +274,6 @@ class _AlarmPageState extends State<AlarmPage> {
                 valueListenable: _recorderService.stateNotifier,
                 builder: (context, state, _) {
                   final isRecording = state == RecorderState.recording;
-
                   return SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -291,8 +290,7 @@ class _AlarmPageState extends State<AlarmPage> {
                           letterSpacing: 1.2,
                         ),
                       ),
-                      onPressed:
-                          isRecording ? _stopRecording : _startRecording,
+                      onPressed: isRecording ? _stopRecording : _startRecording,
                       child: Text(isRecording ? 'STOP' : 'START'),
                     ),
                   );
