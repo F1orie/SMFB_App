@@ -224,6 +224,7 @@ class _GraphPageState extends State<GraphPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: SizedBox(
                 height: 240,
+                width: double.infinity,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.03),
@@ -242,7 +243,6 @@ class _GraphPageState extends State<GraphPage> {
                         alarmMinuteFromZero: _mock.alarmMinuteFromZero,
                         actualWakeMinuteFromZero: _mock.actualWakeMinuteFromZero,
                       ),
-                      child: const SizedBox.expand(),
                     ),
                   ),
                 ),
