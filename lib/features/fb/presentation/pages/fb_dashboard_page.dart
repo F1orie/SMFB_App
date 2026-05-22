@@ -22,7 +22,9 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
 
   SleepSession? _session;
   String? _memo;
-  
+  List<SleepSession> _dateSessions = [];
+  int _sessionOffset = 0;
+
   // 通常のAIアドバイス
   String? _aiAdvice;
   bool _isLoadingAi = false;
@@ -42,6 +44,17 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     _loadData();
   }
 
+  List<SleepSession> _sessionsForDate(DateTime date) {
+    final list = SleepRepository.instance.allSessions.where((s) {
+      final start = DateTime.fromMillisecondsSinceEpoch(s.startAtEpochMs);
+      return start.year == date.year &&
+          start.month == date.month &&
+          start.day == date.day;
+    }).toList();
+    list.sort((a, b) => b.startAtEpochMs.compareTo(a.startAtEpochMs));
+    return list;
+  }
+
   Future<void> _loadData() async {
     final target = widget.targetSession ??
         (SleepRepository.instance.allSessions.isNotEmpty
@@ -51,37 +64,57 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     if (target == null) {
       setState(() {
         _session = null;
+        _dateSessions = [];
       });
       return;
     }
 
-    final latest = target;
-    final notes = SleepRepository.instance.notesForSession(latest.id);
+    final targetDt = DateTime.fromMillisecondsSinceEpoch(target.startAtEpochMs);
+    final dateSessions = _sessionsForDate(targetDt);
+    final offset = dateSessions.indexWhere((s) => s.id == target.id);
+
+    setState(() {
+      _dateSessions = dateSessions;
+      _sessionOffset = offset >= 0 ? offset : 0;
+    });
+
+    await _loadSession(dateSessions[_sessionOffset]);
+  }
+
+  Future<void> _loadSession(SleepSession session) async {
+    final notes = SleepRepository.instance.notesForSession(session.id);
     final memo = notes.isNotEmpty ? notes.last.memo : '';
 
     setState(() {
-      _session = latest;
+      _session = session;
       _memo = memo;
+      _aiAdvice = null;
+      _selectedAdviceType = null;
+      _specialAdvice = null;
+      _hasError = false;
+      _errorDetail = null;
     });
 
-    if (_adviceCache.containsKey(latest.id)) {
-      setState(() {
-        _aiAdvice = _adviceCache[latest.id];
-      });
+    if (_adviceCache.containsKey(session.id)) {
+      setState(() => _aiAdvice = _adviceCache[session.id]);
       return;
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('fb_ai_advice_${latest.id}');
+    final saved = prefs.getString('fb_ai_advice_${session.id}');
     if (saved != null) {
-      _adviceCache[latest.id] = saved;
-      setState(() {
-        _aiAdvice = saved;
-      });
+      _adviceCache[session.id] = saved;
+      setState(() => _aiAdvice = saved);
       return;
     }
 
-    await _runAiAnalysis(latest, memo);
+    await _runAiAnalysis(session, memo);
+  }
+
+  void _switchSession(int offset) {
+    if (offset < 0 || offset >= _dateSessions.length) return;
+    setState(() => _sessionOffset = offset);
+    _loadSession(_dateSessions[offset]);
   }
 
   /// 通常の睡眠分析
@@ -225,7 +258,54 @@ $targetInstruction
       ),
       body: _session == null
           ? _buildNoData()
-          : _buildContent(_session!),
+          : Column(
+              children: [
+                if (_dateSessions.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: _sessionOffset > 0
+                              ? () => _switchSession(_sessionOffset - 1)
+                              : null,
+                          iconSize: 20,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            '${_sessionOffset + 1} / ${_dateSessions.length} 件目',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: _sessionOffset < _dateSessions.length - 1
+                              ? () => _switchSession(_sessionOffset + 1)
+                              : null,
+                          iconSize: 20,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                      ],
+                    ),
+                  ),
+                Expanded(child: _buildContent(_session!)),
+              ],
+            ),
     );
   }
 
