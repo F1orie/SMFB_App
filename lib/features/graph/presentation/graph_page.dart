@@ -750,8 +750,10 @@ class SleepDepthAreaChartPainter extends CustomPainter {
     }
 
     final totalHours = (xTickEndHour - xTickStartHour).clamp(1, 9999);
+    final step = totalHours <= 8 ? 1 : totalHours <= 16 ? 2 : 4;
 
     for (var hour = xTickStartHour; hour <= xTickEndHour; hour++) {
+      if ((hour - xTickStartHour) % step != 0) continue;
       final x =
           plotRect.left + (hour - xTickStartHour) / totalHours * plotRect.width;
       _drawTickLabel(
