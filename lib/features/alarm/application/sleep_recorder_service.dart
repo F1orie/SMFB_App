@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../domain/depth_scoring.dart';
 import '../domain/sleep_epoch.dart';
 import '../domain/sleep_metrics.dart';
 import '../domain/sleep_session.dart';
+import 'sleep_task_handler.dart';
 
 enum RecorderState { idle, recording, finishing }
 
@@ -30,8 +32,11 @@ class SleepRecorderService {
   static const int _epochDurationSec = kDebugMode ? 10 : 60;
 
   /// activityCount の正規化係数 (m/s²)
-  /// ユーザー加速度センサーは重力除去済み。2.0 m/s² を最大動作と想定。
+  /// userAccelerometer は重力除去済み。2.0 m/s² を最大動作と想定。
   static const double _accelNormFactor = 2.0;
+
+  /// フォアグラウンドサービスの通知ID
+  static const int _serviceId = 256;
 
   final ValueNotifier<RecorderState> stateNotifier =
       ValueNotifier<RecorderState>(RecorderState.idle);
@@ -52,7 +57,7 @@ class SleepRecorderService {
 
   // ── 開始 ────────────────────────────────────────────────────
 
-  void start({int? alarmTimeEpochMs}) {
+  Future<void> start({int? alarmTimeEpochMs}) async {
     if (stateNotifier.value == RecorderState.recording) return;
 
     final int now = DateTime.now().millisecondsSinceEpoch;
@@ -74,31 +79,41 @@ class SleepRecorderService {
     _accelSamples.clear();
     stateNotifier.value = RecorderState.recording;
 
+    // センサー購読開始
     _startSensor();
 
+    // エポックタイマー
     _epochTimer = Timer.periodic(
       Duration(seconds: _epochDurationSec),
       (_) => _commitEpoch(),
     );
+
+    // フォアグラウンドサービス開始（Android のみ）
+    if (!kIsWeb) {
+      await FlutterForegroundTask.startService(
+        serviceId: _serviceId,
+        notificationTitle: '睡眠計測中',
+        notificationText: 'STOPを押して計測を終了してください',
+        callback: sleepRecordingCallback,
+      );
+    }
   }
 
   // ── センサー購読 ─────────────────────────────────────────────
 
   void _startSensor() {
-    if (kIsWeb) return; // Web はセンサー非対応
+    if (kIsWeb) return;
 
     _accelSub = userAccelerometerEventStream(
       samplingPeriod: SensorInterval.normalInterval, // ~200ms
     ).listen(
       (event) {
-        // 重力除去済みの加速度ベクトルのノルム
         final double magnitude =
             sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-        // 0〜1 に正規化してバッファへ追加
         _accelSamples.add((magnitude / _accelNormFactor).clamp(0.0, 1.0));
       },
       onError: (_) {
-        // センサー取得失敗時はサンプルを追加しない（activityCount=0 扱い）
+        // センサー取得失敗時はサンプルを追加しない（activityCount=0扱い）
       },
     );
   }
@@ -109,7 +124,6 @@ class SleepRecorderService {
     final SleepSession? session = _currentSession;
     if (session == null) return;
 
-    // サンプルの平均 → activityCount
     final double activityCount = _accelSamples.isEmpty
         ? 0.0
         : _accelSamples.reduce((a, b) => a + b) / _accelSamples.length;
@@ -132,7 +146,7 @@ class SleepRecorderService {
   // ── 入眠検出 ─────────────────────────────────────────────────
 
   void _detectSleepOnset() {
-    if (_sleepOnsetEpochMs != null) return; // 既に検出済み
+    if (_sleepOnsetEpochMs != null) return;
     if (_epochs.length < DepthScoring.onsetConsecutive) return;
 
     final recent = _epochs.sublist(
@@ -142,14 +156,13 @@ class SleepRecorderService {
         recent.every((e) => e.scoreDepth >= DepthScoring.onsetThreshold);
 
     if (allDeep) {
-      // 連続の先頭エポック時刻を入眠時刻とする
       _sleepOnsetEpochMs = recent.first.tEpochMs;
     }
   }
 
   // ── 停止 ────────────────────────────────────────────────────
 
-  SleepRecordResult? stop() {
+  Future<SleepRecordResult?> stop() async {
     if (stateNotifier.value != RecorderState.recording) return null;
 
     stateNotifier.value = RecorderState.finishing;
@@ -157,6 +170,11 @@ class SleepRecorderService {
     _epochTimer = null;
     _accelSub?.cancel();
     _accelSub = null;
+
+    // フォアグラウンドサービス停止
+    if (!kIsWeb) {
+      await FlutterForegroundTask.stopService();
+    }
 
     final SleepSession? session = _currentSession;
     if (session == null) {
@@ -196,11 +214,12 @@ class SleepRecorderService {
 
   // ── 中断 ────────────────────────────────────────────────────
 
-  void abort() {
+  Future<void> abort() async {
     _epochTimer?.cancel();
     _epochTimer = null;
     _accelSub?.cancel();
     _accelSub = null;
+    if (!kIsWeb) await FlutterForegroundTask.stopService();
     _currentSession = null;
     _epochs.clear();
     _accelSamples.clear();
