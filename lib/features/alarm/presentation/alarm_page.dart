@@ -151,8 +151,10 @@ class _AlarmPageState extends State<AlarmPage> {
     if (result != null) {
       await _showMemoDialog(result.session.id);
       if (!mounted) return;
-      // メモ保存後は分析(fb)画面へ遷移
-      widget.onNavigateToFb?.call();
+      // メモ保存後は分析(fb)画面へ遷移（フレーム確定後に切り替えてクラッシュ回避）
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onNavigateToFb?.call();
+      });
     }
   }
 
