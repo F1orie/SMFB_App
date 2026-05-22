@@ -113,6 +113,20 @@ class _GraphPageState extends State<GraphPage> {
         : null;
     final int actualWakeMin = ((endMs - startMs) / 60000).floor();
 
+    // 入眠時刻・入眠潜時
+    final onsetMs = session.sleepOnsetEpochMs;
+    String fallAsleepLabel;
+    String latencyLabel;
+    if (onsetMs != null) {
+      final onsetDt = DateTime.fromMillisecondsSinceEpoch(onsetMs);
+      fallAsleepLabel = '${onsetDt.hour}:${pad(onsetDt.minute)}';
+      final latencyMin = ((onsetMs - startMs) / 60000).floor();
+      latencyLabel = '$latencyMin分';
+    } else {
+      fallAsleepLabel = '--';
+      latencyLabel = '--';
+    }
+
     final notes = repo.notesForSession(session.id);
     final memo = notes.isNotEmpty ? notes.last.memo : '';
 
@@ -123,10 +137,10 @@ class _GraphPageState extends State<GraphPage> {
       points: points,
       summary: SleepSummaryMock(
         bedtimeLabel: '${startDt.hour}:${pad(startDt.minute)}',
-        fallAsleepLabel: '--',
+        fallAsleepLabel: fallAsleepLabel,
         wakeUpLabel: '${endDt.hour}:${pad(endDt.minute)}',
         sleepDurationLabel: durationLabel,
-        latencyLabel: '--',
+        latencyLabel: latencyLabel,
         awakeningCountLabel: '--',
         awakeningTimeLabel: '--',
         efficiencyLabel: '--',
