@@ -9,6 +9,8 @@ import '../application/dummy_sleep_data_service.dart';
 import '../application/sleep_recorder_service.dart';
 import '../domain/sleep_note.dart';
 import '../infrastructure/sleep_repository.dart';
+import '../application/alarm_sound_service.dart';
+import '../application/alarm_timer_service.dart';
 
 final _notifications = FlutterLocalNotificationsPlugin();
 
@@ -45,6 +47,8 @@ class _AlarmPageState extends State<AlarmPage> {
 
   final SleepRecorderService _recorderService = SleepRecorderService();
   final DummySleepDataService _dummySleepDataService = DummySleepDataService();
+  final AlarmSoundService _alarmSoundService = AlarmSoundService();
+  final AlarmTimerService _alarmTimerService = AlarmTimerService();
 
   SleepRecordResult? _lastResult;
   String? _lastDummySessionId;
@@ -64,13 +68,18 @@ class _AlarmPageState extends State<AlarmPage> {
   }
 
   @override
-  void dispose() {
-    _hourCtrl.dispose();
-    _minuteCtrl.dispose();
-    _recorderService.dispose();
-    _notificationTimer?.cancel();
-    super.dispose();
-  }
+void dispose() {
+  _hourCtrl.dispose();
+  _minuteCtrl.dispose();
+  _recorderService.dispose();
+
+  _notificationTimer?.cancel();
+
+  _alarmTimerService.dispose();
+  _alarmSoundService.dispose();
+
+  super.dispose();
+}
 
   String _wakeWindowLabel() {
     final endM = _hour * 60 + _minute;
@@ -99,6 +108,12 @@ class _AlarmPageState extends State<AlarmPage> {
     _recorderService.start(alarmTimeEpochMs: alarmMs);
 
     _notificationTimer?.cancel();
+    _alarmTimerService.setAlarm(
+  alarmTime: alarmDt,
+  onRing: () {
+    _ringAlarm();
+  },
+);
     if (!kIsWeb) {
       _notificationTimer = Timer(alarmDt.difference(now), () {
         _notifications.show(
@@ -157,6 +172,51 @@ class _AlarmPageState extends State<AlarmPage> {
       });
     }
   }
+  Future<void> _ringAlarm() async {
+  await _alarmSoundService.play();
+
+  if (!mounted) return;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('アラーム'),
+        content: const Text('起床時間です'),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _alarmSoundService.stop();
+
+              _alarmTimerService.snooze(
+                onRing: () {
+                  _ringAlarm();
+                },
+              );
+
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('SNOOZE 5分'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await _alarmSoundService.stop();
+              _alarmTimerService.cancel();
+
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('STOP'),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   Future<void> _showMemoDialog(String sessionId) async {
     await showDialog<void>(
