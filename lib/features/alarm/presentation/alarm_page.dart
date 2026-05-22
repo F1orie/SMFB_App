@@ -10,6 +10,8 @@ import '../application/dummy_sleep_data_service.dart';
 import '../application/sleep_recorder_service.dart';
 import '../domain/sleep_note.dart';
 import '../infrastructure/sleep_repository.dart';
+import '../application/alarm_sound_service.dart';
+import '../application/alarm_timer_service.dart';
 
 final _notifications = FlutterLocalNotificationsPlugin();
 
@@ -58,6 +60,8 @@ class _AlarmPageState extends State<AlarmPage> {
 
   final SleepRecorderService _recorderService = SleepRecorderService();
   final DummySleepDataService _dummySleepDataService = DummySleepDataService();
+  final AlarmSoundService _alarmSoundService = AlarmSoundService();
+  final AlarmTimerService _alarmTimerService = AlarmTimerService();
 
   SleepRecordResult? _lastResult;
   String? _lastDummySessionId;
@@ -77,13 +81,18 @@ class _AlarmPageState extends State<AlarmPage> {
   }
 
   @override
-  void dispose() {
-    _hourCtrl.dispose();
-    _minuteCtrl.dispose();
-    _recorderService.dispose();
-    _notificationTimer?.cancel();
-    super.dispose();
-  }
+void dispose() {
+  _hourCtrl.dispose();
+  _minuteCtrl.dispose();
+  _recorderService.dispose();
+
+  _notificationTimer?.cancel();
+
+  _alarmTimerService.dispose();
+  _alarmSoundService.dispose();
+
+  super.dispose();
+}
 
   String _wakeWindowLabel() {
     final endM = _hour * 60 + _minute;
@@ -114,6 +123,12 @@ class _AlarmPageState extends State<AlarmPage> {
 
     // アラーム時刻に起床通知を送る
     _notificationTimer?.cancel();
+    _alarmTimerService.setAlarm(
+  alarmTime: alarmDt,
+  onRing: () {
+    _ringAlarm();
+  },
+);
     if (!kIsWeb) {
       _notificationTimer = Timer(alarmDt.difference(now), () {
         _notifications.show(
@@ -167,51 +182,64 @@ class _AlarmPageState extends State<AlarmPage> {
     if (result != null) {
       await _showMemoDialog(result.session.id);
       if (!mounted) return;
-      // メモ保存後は分析(fb)画面へ遷移
-      widget.onNavigateToFb?.call();
+      // メモ保存後は分析(fb)画面へ遷移（フレーム確定後に切り替えてクラッシュ回避）
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onNavigateToFb?.call();
+      });
     }
   }
+  Future<void> _ringAlarm() async {
+  await _alarmSoundService.play();
 
-  Future<void> _showMemoDialog(String sessionId) async {
-    final ctrl = TextEditingController();
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('今夜の睡眠メモ'),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: 'メモを入力してください',
-            border: OutlineInputBorder(),
-          ),
-        ),
+  if (!mounted) return;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('アラーム'),
+        content: const Text('起床時間です'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('スキップ'),
+            onPressed: () async {
+              await _alarmSoundService.stop();
+
+              _alarmTimerService.snooze(
+                onRing: () {
+                  _ringAlarm();
+                },
+              );
+
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('SNOOZE 5分'),
           ),
           FilledButton(
             onPressed: () async {
-              await SleepRepository.instance.saveNote(
-                SleepNote(
-                  sessionId: sessionId,
-                  createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
-                  memo: ctrl.text,
-                  hadAlcohol: false,
-                  hadCaffeine: false,
-                  didExercise: false,
-                ),
-              );
-              if (ctx.mounted) Navigator.of(ctx).pop();
+              await _alarmSoundService.stop();
+              _alarmTimerService.cancel();
+
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
             },
-            child: const Text('保存'),
+            child: const Text('STOP'),
           ),
         ],
-      ),
+      );
+    },
+  );
+}
+
+  Future<void> _showMemoDialog(String sessionId) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _MemoDialog(sessionId: sessionId),
     );
-    ctrl.dispose();
   }
 
   Future<void> _createDummyData() async {
@@ -541,6 +569,68 @@ class _AdBannerPlaceholder extends StatelessWidget {
             .labelMedium
             ?.copyWith(color: Colors.grey.shade700),
       ),
+    );
+  }
+}
+
+class _MemoDialog extends StatefulWidget {
+  const _MemoDialog({required this.sessionId});
+
+  final String sessionId;
+
+  @override
+  State<_MemoDialog> createState() => _MemoDialogState();
+}
+
+class _MemoDialogState extends State<_MemoDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('今夜の睡眠メモ'),
+      content: TextField(
+        controller: _ctrl,
+        maxLines: 5,
+        decoration: const InputDecoration(
+          hintText: 'メモを入力してください',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('スキップ'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            await SleepRepository.instance.saveNote(
+              SleepNote(
+                sessionId: widget.sessionId,
+                createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+                memo: _ctrl.text,
+                hadAlcohol: false,
+                hadCaffeine: false,
+                didExercise: false,
+              ),
+            );
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          child: const Text('保存'),
+        ),
+      ],
     );
   }
 }
