@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../application/dummy_sleep_data_service.dart';
@@ -20,6 +21,18 @@ Future<void> initAlarmNotifications() async {
   await _notifications.initialize(
     settings: const InitializationSettings(android: android),
   );
+  // Android 13+ の通知パーミッションをリクエスト
+  await _requestNotificationPermission();
+}
+
+/// 通知パーミッションをリクエスト（Android 13+ / iOS）
+Future<void> _requestNotificationPermission() async {
+  if (kIsWeb) return;
+  final permission =
+      await FlutterForegroundTask.checkNotificationPermission();
+  if (permission != NotificationPermission.granted) {
+    await FlutterForegroundTask.requestNotificationPermission();
+  }
 }
 
 const _alarmMinuteGranularity = 5;
@@ -100,7 +113,7 @@ void dispose() {
     return '$h:${min.toString().padLeft(2, '0')}';
   }
 
-  void _startRecording() {
+  Future<void> _startRecording() async {
     final now = DateTime.now();
     var alarmDt = DateTime(now.year, now.month, now.day, _hour, _minute);
     if (!alarmDt.isAfter(now)) {
@@ -108,8 +121,10 @@ void dispose() {
     }
     final alarmMs = alarmDt.millisecondsSinceEpoch;
 
-    _recorderService.start(alarmTimeEpochMs: alarmMs);
+    // フォアグラウンドサービス起動 + センサー開始
+    await _recorderService.start(alarmTimeEpochMs: alarmMs);
 
+    // アラーム時刻に起床通知を送る
     _notificationTimer?.cancel();
     _alarmTimerService.setAlarm(
   alarmTime: alarmDt,
@@ -135,6 +150,7 @@ void dispose() {
       });
     }
 
+    if (!mounted) return;
     setState(() {
       _lastResult = null;
     });
@@ -145,7 +161,7 @@ void dispose() {
   }
 
   Future<void> _stopRecording() async {
-    final result = _recorderService.stop();
+    final result = await _recorderService.stop();
 
     if (result != null) {
       await SleepRepository.instance.saveSession(result.session);
@@ -359,10 +375,7 @@ void dispose() {
               ),
               if (_lastResult != null) ...[
                 const SizedBox(height: 6),
-                Text(
-                  '睡眠時間: ${_lastResult!.metrics.totalSleepMin}分 / 平均深度: ${_lastResult!.metrics.averageDepth.toStringAsFixed(2)}',
-                  style: textTheme.bodySmall?.copyWith(color: Colors.black54),
-                ),
+                _SleepResultSummary(result: _lastResult!),
               ],
               if (_lastDummySessionId != null) ...[
                 const SizedBox(height: 4),
