@@ -1,15 +1,9 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
-/// 全タブ共通で参照するモーション表示フラグ（振り子など）。
 class MotionState {
-  MotionState._();
+  static final pendulumEnabled = ValueNotifier<bool>(false);
+  static final pendulumShowInShell = ValueNotifier<bool>(true);
 
-  /// 振り子モーションをシェル背面に表示するか。
-  static final ValueNotifier<bool> pendulumEnabled = ValueNotifier<bool>(false);
-
-  /// Android でアプリが背後（paused）の間は false。前面ではシェル描画、背後では
-  /// システムオーバーレイのみとし二重表示を防ぐ。
-  static final ValueNotifier<bool> pendulumShowInShell = ValueNotifier<bool>(
-    true,
-  );
+  // ★ 追加：現在アクティブなパターンの名前を管理する（初期値は pendulum）
+  static final selectedPattern = ValueNotifier<String>('pendulum');
 }

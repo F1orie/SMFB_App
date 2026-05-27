@@ -5,12 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:smf_app/features/motion/application/motion_state.dart';
 
 import '../infrastructure/motion_background_controller.dart';
+import 'motion_patterns/breathing_pendulum_motion.dart';
 import 'motion_patterns/pendulum_ball_motion.dart';
+// ★ 3枚目の縦線アニメーションをインポート
+import 'motion_patterns/side_breathing_lines_motion.dart'; 
 
-class MotionPage extends StatelessWidget {
+class MotionPage extends StatefulWidget {
   const MotionPage({super.key});
 
   static const backgroundColor = Color(0xFFEFF2F6);
+
+  @override
+  State<MotionPage> createState() => _MotionPageState();
+}
+
+class _MotionPageState extends State<MotionPage> {
+  // 現在どのパターンが選択されているかを保持する状態 ('pendulum', 'breathing', 'side_lines')
+  String _selectedPattern = 'pendulum';
 
   static Future<void> _setPendulumEnabled(bool enabled) async {
     if (enabled) {
@@ -41,19 +52,73 @@ class MotionPage extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate.fixed([
+                      
+                      // 1枚目のカード：通常の振り子ボール
                       _SkeletonCard(
                         title: '振り子ボール',
-                        enabled: enabled,
-                        preview: enabled
+                        enabled: enabled && _selectedPattern == 'pendulum',
+                        preview: (enabled && _selectedPattern == 'pendulum')
                             ? const _PendulumActivePreviewPlaceholder()
                             : const PendulumBallMotion(
                                 period: Duration(milliseconds: 5000),
                                 ballDiameter: 20,
+                                isPreview: true, // ★ 他がONになってもここは絶対に振り子を維持するフラグ
                               ),
                         onEnabledChanged: (v) {
+                          setState(() {
+                            _selectedPattern = 'pendulum';
+                          });
+                          // 全体状態に通知（干渉を防ぐため確実に pendulum にリセット）
+                          MotionState.selectedPattern.value = 'pendulum';
                           unawaited(_setPendulumEnabled(v));
                         },
                       ),
+                      
+                      const SizedBox(height: 16), // カード間の余白
+
+                      // 2枚目のカード：明滅する固定点
+                      _SkeletonCard(
+                        title: '明滅するボール',
+                        enabled: enabled && _selectedPattern == 'breathing',
+                        preview: (enabled && _selectedPattern == 'breathing')
+                            ? const _PendulumActivePreviewPlaceholder()
+                            : const BreathingPendulumMotion(
+                                period: Duration(milliseconds: 5000),
+                                ballDiameter: 14,
+                              ),
+                        onEnabledChanged: (v) {
+                          setState(() {
+                            // スイッチON時は 'breathing'、OFFにされたらデフォルトの 'pendulum' に引き戻す
+                            _selectedPattern = v ? 'breathing' : 'pendulum';
+                          });
+                          // 全体状態に通知
+                          MotionState.selectedPattern.value = v ? 'breathing' : 'pendulum';
+                          unawaited(_setPendulumEnabled(v));
+                        },
+                      ),
+
+                      const SizedBox(height: 16), // カード間の余白
+
+                      // ★ 3枚目のカード：波打つ縦線（追加箇所）
+                      _SkeletonCard(
+                        title: '波打つ縦線', // お好みの名前に変更してください
+                        enabled: enabled && _selectedPattern == 'side_lines',
+                        preview: (enabled && _selectedPattern == 'side_lines')
+                            ? const _PendulumActivePreviewPlaceholder()
+                            : const SideBreathingLinesMotion(
+                                period: Duration(milliseconds: 6000),
+                              ),
+                        onEnabledChanged: (v) {
+                          setState(() {
+                            // スイッチON時は 'side_lines'、OFFにされたら 'pendulum' に戻す
+                            _selectedPattern = v ? 'side_lines' : 'pendulum';
+                          });
+                          // 全体状態に通知
+                          MotionState.selectedPattern.value = v ? 'side_lines' : 'pendulum';
+                          unawaited(_setPendulumEnabled(v));
+                        },
+                      ),
+
                     ]),
                   ),
                 ),
@@ -66,7 +131,7 @@ class MotionPage extends StatelessWidget {
   }
 }
 
-/// ON 時は全画面／オーバーレイ側で振り子が出るため、カード内では二重にならないプレースホルダ。
+/// ON 時は全画面／オーバーレイ側で振り子やドットが出るため、カード内では二重にならないプレースホルダ。
 class _PendulumActivePreviewPlaceholder extends StatelessWidget {
   const _PendulumActivePreviewPlaceholder();
 
@@ -112,7 +177,7 @@ class _SkeletonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 210,
+      height: 220, // 固定高さを 220 に拡張して、BOTTOM OVERFLOWED エラーを完全防止
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -163,7 +228,7 @@ class _SkeletonCard extends StatelessWidget {
                       ),
                       child: Text(
                         enabled ? 'ON' : 'OFF',
-                        style: Theme.of(context).textTheme.labelMedium
+                        style: Theme.of(context).textTheme.labelLarge
                             ?.copyWith(
                               fontWeight: FontWeight.w900,
                               color: enabled

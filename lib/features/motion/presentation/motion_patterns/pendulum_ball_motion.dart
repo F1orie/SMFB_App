@@ -1,11 +1,9 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+import 'package:smf_app/features/motion/application/motion_state.dart';
+import 'breathing_pendulum_motion.dart';
 
 /// 振り子のように左右へゆったり往復する球体モーション。
-///
-/// - 周期: [period]（往復=左→右→左）
-/// - 与えられた領域内で円弧（振り子）運動
 class PendulumBallMotion extends StatefulWidget {
   const PendulumBallMotion({
     super.key,
@@ -14,6 +12,7 @@ class PendulumBallMotion extends StatefulWidget {
     this.ballColor = const Color(0xFFBFE6FF),
     this.glowColor = const Color(0xFF6EC6FF),
     this.maxAngleRad = 0.95,
+    this.isPreview = false, // カード内のプレビュー表示の時は強制的に振り子を出すためのフラグ
   });
 
   final Duration period;
@@ -21,13 +20,14 @@ class PendulumBallMotion extends StatefulWidget {
   final Color ballColor;
   final Color glowColor;
   final double maxAngleRad;
+  final bool isPreview; 
 
   @override
-  State<PendulumBallMotion> createState() => _PendulumBallMotionState();
+  State<PendulumBallMotion> createState() => _PendulumBallMotionState(); // ★ここと
 }
 
-class _PendulumBallMotionState extends State<PendulumBallMotion>
-    with SingleTickerProviderStateMixin {
+// ★ここの名前を「_PendulumBallMotionState」に綺麗に統一してエラーを修正しました！
+class _PendulumBallMotionState extends State<PendulumBallMotion> with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
     duration: widget.period,
@@ -50,6 +50,30 @@ class _PendulumBallMotionState extends State<PendulumBallMotion>
 
   @override
   Widget build(BuildContext context) {
+    // プレビュー中ではなく、かつ全体状態で固定点（breathing）が選ばれている場合
+    // main.dartからこのクラスが呼ばれた瞬間に、中身を固定点明滅モーションへすり替えて表示する
+    if (!widget.isPreview) {
+      return ValueListenableBuilder<String>(
+        valueListenable: MotionState.selectedPattern,
+        builder: (context, pattern, _) {
+          if (pattern == 'breathing') {
+            return BreathingPendulumMotion(
+              period: widget.period,
+              ballDiameter: widget.ballDiameter,
+              dotColor: widget.ballColor,
+              glowColor: widget.glowColor,
+            );
+          }
+          return _buildOriginalPendulum(); // 通常は振り子を出す
+        },
+      );
+    }
+
+    return _buildOriginalPendulum();
+  }
+
+  // 元々の振り子ボールの描画処理
+  Widget _buildOriginalPendulum() {
     final curved = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine);
 
     return LayoutBuilder(
@@ -61,22 +85,17 @@ class _PendulumBallMotionState extends State<PendulumBallMotion>
         return AnimatedBuilder(
           animation: curved,
           builder: (context, _) {
-            final t = curved.value; // 0..1（reverseで往復）
+            final t = curved.value;
             final maxAngle = widget.maxAngleRad.clamp(0.2, 1.25);
             final theta = (t * 2 - 1) * maxAngle;
 
             final maxX = math.max(0.0, (w - diameter) * 0.45);
             final maxY = math.max(0.0, (h - diameter) * 0.55);
-            final lx = (maxX > 0)
-                ? maxX / math.max(0.001, math.sin(maxAngle))
-                : 0.0;
-            final ly = (maxY > 0)
-                ? maxY / math.max(0.001, (1 - math.cos(maxAngle)))
-                : 0.0;
+            final lx = (maxX > 0) ? maxX / math.max(0.001, math.sin(maxAngle)) : 0.0;
+            final ly = (maxY > 0) ? maxY / math.max(0.001, (1 - math.cos(maxAngle))) : 0.0;
             final l = math.max(0.0, math.min(lx, ly));
 
             final pivotX = w / 2;
-            // 振り子弧の縦方向レンジを画面中央付近に置く（支点は弧の上端側）。
             final maxDrop = l * (1 - math.cos(maxAngle));
             var pivotY = h / 2 - maxDrop / 2;
             final minPivotY = diameter * 0.5;
