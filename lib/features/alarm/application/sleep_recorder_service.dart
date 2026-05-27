@@ -32,8 +32,9 @@ class SleepRecorderService {
   static const int _epochDurationSec = kDebugMode ? 10 : 60;
 
   /// activityCount の正規化係数 (m/s²)
-  /// userAccelerometer は重力除去済み。2.0 m/s² を最大動作と想定。
-  static const double _accelNormFactor = 2.0;
+  /// 設定画面から setNormFactor() で変更可能。
+  /// 低め（鈍感）= 3.0 / 標準 = 2.0 / 高め（敏感）= 1.0
+  double _accelNormFactor = 2.0;
 
   /// フォアグラウンドサービスの通知ID
   static const int _serviceId = 256;
@@ -54,6 +55,12 @@ class SleepRecorderService {
 
   SleepSession? get currentSession => _currentSession;
   List<SleepEpoch> get epochs => List.unmodifiable(_epochs);
+
+  /// センサー感度の正規化係数を更新する。
+  /// 低め（鈍感）= 3.0 / 標準 = 2.0 / 高め（敏感）= 1.0
+  void setNormFactor(double factor) {
+    _accelNormFactor = factor.clamp(1.0, 3.0);
+  }
 
   // ── 開始 ────────────────────────────────────────────────────
 

@@ -16,6 +16,11 @@ class AlarmSoundService {
     await _player.stop();
   }
 
+  /// アラーム音量を設定する（0.0〜1.0）
+  Future<void> setVolume(double volume) async {
+    await _player.setVolume(volume.clamp(0.0, 1.0));
+  }
+
   Future<void> dispose() async {
     await _player.dispose();
   }
