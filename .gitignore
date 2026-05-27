@@ -44,8 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Local data (SQLite dummy data, Chroma DB, raw product data)
+/data/chroma/
+/data/sleep/*.db
+
 .cursor/
 docs/share/rt/lib/features/fb/application/config/analysis_config.dart
 lib/features/fb/application/config/analysis_config.dart
-
-docs/rt/
