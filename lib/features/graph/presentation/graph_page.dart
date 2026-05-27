@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smf_app/features/alarm/domain/sleep_epoch.dart';
 import 'package:smf_app/features/alarm/domain/sleep_note.dart';
 import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
@@ -131,8 +132,25 @@ class _GraphPageState extends State<GraphPage> {
         : null;
     final int actualWakeMin = ((endMs - startMs) / 60000).floor();
 
+    // 入眠時刻・入眠潜時
+    final onsetMs = session.sleepOnsetEpochMs;
+    String fallAsleepLabel;
+    String latencyLabel;
+    if (onsetMs != null) {
+      final onsetDt = DateTime.fromMillisecondsSinceEpoch(onsetMs);
+      fallAsleepLabel = '${onsetDt.hour}:${pad(onsetDt.minute)}';
+      final latencyMin = ((onsetMs - startMs) / 60000).floor();
+      latencyLabel = '$latencyMin分';
+    } else {
+      fallAsleepLabel = '--';
+      latencyLabel = '--';
+    }
+
     final notes = repo.notesForSession(session.id);
     final memo = notes.isNotEmpty ? notes.last.memo : '';
+
+    // 各メトリクスを計算
+    final metrics = _calcSleepLabels(session, epochs);
 
     return DailySleepDepthMock(
       rangeLabel: '${startDt.month}月${startDt.day}日',
@@ -141,20 +159,95 @@ class _GraphPageState extends State<GraphPage> {
       points: points,
       summary: SleepSummaryMock(
         bedtimeLabel: '${startDt.hour}:${pad(startDt.minute)}',
-        fallAsleepLabel: '--',
+        fallAsleepLabel: fallAsleepLabel,
         wakeUpLabel: '${endDt.hour}:${pad(endDt.minute)}',
         sleepDurationLabel: durationLabel,
-        latencyLabel: '--',
-        awakeningCountLabel: '--',
-        awakeningTimeLabel: '--',
-        efficiencyLabel: '--',
-        deepTimeLabel: '--',
-        lightTimeLabel: '--',
+        latencyLabel: latencyLabel,
+        awakeningCountLabel: metrics.awakeningCount,
+        awakeningTimeLabel: metrics.awakeningTime,
+        efficiencyLabel: metrics.efficiency,
+        deepTimeLabel: metrics.deepTime,
+        lightTimeLabel: metrics.lightTime,
       ),
       memo: memo,
       sessionId: session.id,
       alarmMinuteFromZero: alarmMin,
       actualWakeMinuteFromZero: actualWakeMin,
+    );
+  }
+
+  /// エポックデータから睡眠メトリクスのラベルを計算する。
+  /// 入眠未検出 or セッション未終了の場合は全項目 '--' を返す。
+  ({
+    String awakeningCount,
+    String awakeningTime,
+    String efficiency,
+    String deepTime,
+    String lightTime,
+  }) _calcSleepLabels(SleepSession session, List<SleepEpoch> epochs) {
+    const dash = '--';
+    final onset = session.sleepOnsetEpochMs;
+    final endMs = session.endAtEpochMs;
+    final sec = session.samplingPeriodSec;
+
+    if (onset == null || endMs == null || epochs.isEmpty) {
+      return (
+        awakeningCount: dash,
+        awakeningTime: dash,
+        efficiency: dash,
+        deepTime: dash,
+        lightTime: dash,
+      );
+    }
+
+    // 入眠後のエポックを時刻順にソート
+    final postOnset = epochs
+        .where((e) => e.tEpochMs >= onset)
+        .toList()
+      ..sort((a, b) => a.tEpochMs.compareTo(b.tEpochMs));
+
+    // ── 睡眠効率 ──────────────────────────────────────────────
+    // (入眠〜起床) / (就寝〜起床) × 100
+    final bedMs = endMs - session.startAtEpochMs;
+    final sleepMs = endMs - onset;
+    final efficiency =
+        bedMs > 0 ? (sleepMs / bedMs * 100).clamp(0.0, 100.0) : 0.0;
+
+    // ── 深睡眠・浅睡眠 ────────────────────────────────────────
+    // 深睡眠: scoreDepth >= 0.7（入眠後）
+    final deepCount =
+        postOnset.where((e) => e.scoreDepth >= 0.7).length;
+    final deepMin = (deepCount * sec / 60).round();
+
+    // 浅睡眠: 0.3 <= scoreDepth < 0.7（入眠後）
+    final lightCount =
+        postOnset.where((e) => e.scoreDepth >= 0.3 && e.scoreDepth < 0.7).length;
+    final lightMin = (lightCount * sec / 60).round();
+
+    // ── 中途覚醒 ──────────────────────────────────────────────
+    // scoreDepth < 0.3 が 1エポック以上連続するまとまりをカウント
+    int awakeGroups = 0;
+    int awakeEpochCount = 0;
+    bool inAwake = false;
+    for (final e in postOnset) {
+      if (e.scoreDepth < 0.3) {
+        if (!inAwake) {
+          inAwake = true;
+          awakeGroups++;
+        }
+        awakeEpochCount++;
+      } else {
+        inAwake = false;
+      }
+    }
+    final awakeMin = (awakeEpochCount * sec / 60).round();
+
+    return (
+      awakeningCount: '$awakeGroups 回',
+      awakeningTime: '$awakeMin 分',
+      efficiency: '${efficiency.toStringAsFixed(0)}%',
+      deepTime: '$deepMin 分',
+      lightTime: '$lightMin 分',
     );
   }
 
