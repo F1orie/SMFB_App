@@ -47,3 +47,5 @@ app.*.map.json
 .cursor/
 docs/share/rt/lib/features/fb/application/config/analysis_config.dart
 lib/features/fb/application/config/analysis_config.dart
+
+docs/rt/
