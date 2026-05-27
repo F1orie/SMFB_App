@@ -35,13 +35,11 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   bool _isLoadingAi = false;
   bool _hasError = false;
   String? _errorDetail;
-  bool _isMainTruncated = false; // トークン切れフラグ
 
   // ★ 特化型アドバイス用のステート管理
   AdviceType? _selectedAdviceType;
   String? _specialAdvice;
   bool _isLoadingSpecialAi = false;
-  bool _isSpecialTruncated = false; // トークン切れフラグ
 
   static final Map<String, String> _adviceCache = {};
 
@@ -100,8 +98,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _specialAdvice = null;
       _hasError = false;
       _errorDetail = null;
-      _isMainTruncated = false;
-      _isSpecialTruncated = false;
     });
 
     if (_adviceCache.containsKey(session.id)) {
@@ -134,7 +130,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _hasError = false;
       _errorDetail = null;
       _aiAdvice = null;
-      _isMainTruncated = false;
     });
 
     if (forceRefresh) {
@@ -167,7 +162,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         setState(() {
           _aiAdvice = e.partialText;
           _isLoadingAi = false;
-          _isMainTruncated = true;
         });
       }
     } catch (e) {
@@ -192,7 +186,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _selectedAdviceType = type;
       _isLoadingSpecialAi = true;
       _specialAdvice = null;
-      _isSpecialTruncated = false;
     });
 
     final cacheKey = _specialCacheKey(type.name, session.id);
@@ -237,7 +230,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         setState(() {
           _specialAdvice = e.partialText;
           _isLoadingSpecialAi = false;
-          _isSpecialTruncated = true;
         });
       }
     } catch (e) {
@@ -452,23 +444,8 @@ $targetInstruction
           const SizedBox(height: 24),
 
           // 通常のAIアドバイスセクション
-          Row(
-            children: [
-              const Text('アドバイス',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              // 再生成ボタン（ローディング中以外は常に表示）
-              if (!_isLoadingAi)
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
-                  tooltip: '再生成',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                  onPressed: () => _runAiAnalysis(session, _memo ?? '',
-                      forceRefresh: true),
-                ),
-            ],
-          ),
+          const Text('アドバイス',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Container(
             width: double.infinity,
@@ -610,12 +587,6 @@ $targetInstruction
             _aiAdvice!,
             style: const TextStyle(fontSize: 15, height: 1.6),
           ),
-          // トークン切れ警告
-          if (_isMainTruncated) ...[
-            const SizedBox(height: 8),
-            _TruncatedWarning(onRetry: () =>
-                _runAiAnalysis(session, _memo ?? '', forceRefresh: true)),
-          ],
         ],
       );
     }
@@ -684,24 +655,8 @@ $targetInstruction
           children: [
             Icon(icon, color: iconColor, size: 22),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-            // 再生成ボタン
-            if (!_isLoadingSpecialAi && _selectedAdviceType != null)
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 18),
-                tooltip: '再生成',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                onPressed: () => _fetchSpecialAdvice(
-                  session,
-                  _memo ?? '',
-                  _selectedAdviceType!,
-                  forceRefresh: true,
-                ),
-              ),
+            Text(title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         const SizedBox(height: 10),
@@ -709,18 +664,6 @@ $targetInstruction
           _specialAdvice ?? '',
           style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.black87),
         ),
-        // トークン切れ警告
-        if (_isSpecialTruncated) ...[
-          const SizedBox(height: 8),
-          _TruncatedWarning(
-            onRetry: () => _fetchSpecialAdvice(
-              session,
-              _memo ?? '',
-              _selectedAdviceType!,
-              forceRefresh: true,
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -736,43 +679,3 @@ $targetInstruction
   }
 }
 
-// ── トークン切れ警告バナー ──────────────────────────────────────────────────
-class _TruncatedWarning extends StatelessWidget {
-  const _TruncatedWarning({required this.onRetry});
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade200),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
-          const SizedBox(width: 6),
-          const Expanded(
-            child: Text(
-              '応答が途中で切れました。再生成してください。',
-              style: TextStyle(fontSize: 12, color: Colors.orange),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 14),
-            label: const Text('再生成', style: TextStyle(fontSize: 12)),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.orange,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
