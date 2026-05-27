@@ -8,6 +8,11 @@ import '../dialogs/fb_chat_dialog.dart';
 /// 特化型アドバイスの種別
 enum AdviceType { bedding, food, routine }
 
+// ── キャッシュキー（v2: 旧キャッシュを無効化） ──────────────────────────
+String _mainCacheKey(String sessionId) => 'fb_ai_advice_v2_$sessionId';
+String _specialCacheKey(String typeName, String sessionId) =>
+    'fb_special_v2_${typeName}_$sessionId';
+
 class FbDashboardPage extends StatefulWidget {
   const FbDashboardPage({super.key, this.targetSession});
 
@@ -22,7 +27,9 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
 
   SleepSession? _session;
   String? _memo;
-  
+  List<SleepSession> _dateSessions = [];
+  int _sessionOffset = 0;
+
   // 通常のAIアドバイス
   String? _aiAdvice;
   bool _isLoadingAi = false;
@@ -42,6 +49,17 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     _loadData();
   }
 
+  List<SleepSession> _sessionsForDate(DateTime date) {
+    final list = SleepRepository.instance.allSessions.where((s) {
+      final start = DateTime.fromMillisecondsSinceEpoch(s.startAtEpochMs);
+      return start.year == date.year &&
+          start.month == date.month &&
+          start.day == date.day;
+    }).toList();
+    list.sort((a, b) => b.startAtEpochMs.compareTo(a.startAtEpochMs));
+    return list;
+  }
+
   Future<void> _loadData() async {
     final target = widget.targetSession ??
         (SleepRepository.instance.allSessions.isNotEmpty
@@ -51,47 +69,74 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     if (target == null) {
       setState(() {
         _session = null;
+        _dateSessions = [];
       });
       return;
     }
 
-    final latest = target;
-    final notes = SleepRepository.instance.notesForSession(latest.id);
+    final targetDt = DateTime.fromMillisecondsSinceEpoch(target.startAtEpochMs);
+    final dateSessions = _sessionsForDate(targetDt);
+    final offset = dateSessions.indexWhere((s) => s.id == target.id);
+
+    setState(() {
+      _dateSessions = dateSessions;
+      _sessionOffset = offset >= 0 ? offset : 0;
+    });
+
+    await _loadSession(dateSessions[_sessionOffset]);
+  }
+
+  Future<void> _loadSession(SleepSession session) async {
+    final notes = SleepRepository.instance.notesForSession(session.id);
     final memo = notes.isNotEmpty ? notes.last.memo : '';
 
     setState(() {
-      _session = latest;
+      _session = session;
       _memo = memo;
+      _aiAdvice = null;
+      _selectedAdviceType = null;
+      _specialAdvice = null;
+      _hasError = false;
+      _errorDetail = null;
     });
 
-    if (_adviceCache.containsKey(latest.id)) {
-      setState(() {
-        _aiAdvice = _adviceCache[latest.id];
-      });
+    if (_adviceCache.containsKey(session.id)) {
+      setState(() => _aiAdvice = _adviceCache[session.id]);
       return;
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('fb_ai_advice_${latest.id}');
+    final saved = prefs.getString(_mainCacheKey(session.id));
     if (saved != null) {
-      _adviceCache[latest.id] = saved;
-      setState(() {
-        _aiAdvice = saved;
-      });
+      _adviceCache[session.id] = saved;
+      setState(() => _aiAdvice = saved);
       return;
     }
 
-    await _runAiAnalysis(latest, memo);
+    await _runAiAnalysis(session, memo);
   }
 
-  /// 通常の睡眠分析
-  Future<void> _runAiAnalysis(SleepSession session, String memo) async {
+  void _switchSession(int offset) {
+    if (offset < 0 || offset >= _dateSessions.length) return;
+    setState(() => _sessionOffset = offset);
+    _loadSession(_dateSessions[offset]);
+  }
+
+  /// 通常の睡眠分析（forceRefresh=true でキャッシュを無視して再取得）
+  Future<void> _runAiAnalysis(SleepSession session, String memo,
+      {bool forceRefresh = false}) async {
     setState(() {
       _isLoadingAi = true;
       _hasError = false;
       _errorDetail = null;
       _aiAdvice = null;
     });
+
+    if (forceRefresh) {
+      _adviceCache.remove(session.id);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_mainCacheKey(session.id));
+    }
 
     try {
       final systemPrompt = _buildSystemPrompt(session, memo, null);
@@ -100,13 +145,22 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         userMessage: '昨夜の睡眠データを分析して、改善のためのアドバイスをください。',
       );
 
+      // 完全なレスポンスのみキャッシュ
       _adviceCache[session.id] = advice;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('fb_ai_advice_${session.id}', advice);
+      await prefs.setString(_mainCacheKey(session.id), advice);
 
       if (mounted) {
         setState(() {
           _aiAdvice = advice;
+          _isLoadingAi = false;
+        });
+      }
+    } on MaxTokensException catch (e) {
+      // キャッシュしない（次回また新しいAPIコールで取得する）
+      if (mounted) {
+        setState(() {
+          _aiAdvice = e.partialText;
           _isLoadingAi = false;
         });
       }
@@ -122,40 +176,59 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   }
 
   // ★ ボタンが押されたときに特化型アドバイスを取得する関数
-  Future<void> _fetchSpecialAdvice(SleepSession session, String memo, AdviceType type) async {
+  Future<void> _fetchSpecialAdvice(
+    SleepSession session,
+    String memo,
+    AdviceType type, {
+    bool forceRefresh = false,
+  }) async {
     setState(() {
       _selectedAdviceType = type;
       _isLoadingSpecialAi = true;
       _specialAdvice = null;
     });
 
-    // キャッシュキーを一意にする（セッションID + タイプ名）
-    final cacheKey = 'fb_special_${type.name}_${session.id}';
+    final cacheKey = _specialCacheKey(type.name, session.id);
+
+    if (forceRefresh) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(cacheKey);
+    } else {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString(cacheKey);
+        if (saved != null) {
+          setState(() {
+            _specialAdvice = saved;
+            _isLoadingSpecialAi = false;
+          });
+          return;
+        }
+      } catch (_) {}
+    }
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(cacheKey);
-      
-      if (saved != null) {
-        setState(() {
-          _specialAdvice = saved;
-          _isLoadingSpecialAi = false;
-        });
-        return;
-      }
-
-      // 種別に応じたシステムプロンプトを構築してGeminiへ送信
       final systemPrompt = _buildSystemPrompt(session, memo, type);
       final advice = await _apiClient.chat(
         systemPrompt: systemPrompt,
         userMessage: 'この睡眠データに基づいた具体的なおすすめ情報を教えてください。',
       );
 
+      // 完全なレスポンスのみキャッシュ
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setString(cacheKey, advice);
 
       if (mounted) {
         setState(() {
           _specialAdvice = advice;
+          _isLoadingSpecialAi = false;
+        });
+      }
+    } on MaxTokensException catch (e) {
+      // キャッシュしない
+      if (mounted) {
+        setState(() {
+          _specialAdvice = e.partialText;
           _isLoadingSpecialAi = false;
         });
       }
@@ -176,17 +249,34 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         ? DateTime.fromMillisecondsSinceEpoch(session.endAtEpochMs!)
         : null;
     final durationMin = endDt?.difference(startDt).inMinutes;
-    final durationLabel = durationMin != null ? '${durationMin ~/ 60}時間${durationMin % 60}分' : '不明';
+    final durationLabel =
+        durationMin != null ? '${durationMin ~/ 60}時間${durationMin % 60}分' : '不明';
 
-    String targetInstruction = 'ユーザーの睡眠データを分析して、具体的で実践的なアドバイスを日本語で提供してください。アドバイスは200文字以内で簡潔にまとめてください。';
+    // 共通注意書き：マークダウン不使用・プレーンテキスト
+    const noMarkdown =
+        'マークダウン記法（**太字**、##見出し、*リスト等）は一切使わず、'
+        'プレーンテキストで回答してください。';
+
+    String targetInstruction =
+        'ユーザーの睡眠データを分析して、具体的で実践的なアドバイスを日本語で提供してください。'
+        'アドバイスは200文字程度で簡潔にまとめてください。$noMarkdown';
 
     // ボタンのタイプに合わせて指示文を変更
     if (type == AdviceType.bedding) {
-      targetInstruction = '提示された睡眠データ（特に睡眠時間や就寝の規則性）を考慮し、このユーザーの睡眠の質を高めるために「おすすめの寝具（枕、マットレス、掛け布団など）」の具体的な選び方やアプローチを親身に、300文字程度で提案してください。';
+      targetInstruction =
+          '提示された睡眠データ（特に睡眠時間や就寝の規則性）を考慮し、このユーザーの睡眠の質を高めるために'
+          '「おすすめの寝具（枕、マットレス、掛け布団など）」の具体的な選び方やアプローチを'
+          '親身に、300文字程度で提案してください。$noMarkdown';
     } else if (type == AdviceType.food) {
-      targetInstruction = '提示された睡眠データを考慮し、睡眠の質を高めるための「おすすめの食べ物・飲み物（夕食に良いもの、就寝前に最適なホットドリンク、避けるべきものなど）」を親身に、300文字程度で具体的に提案してください。';
+      targetInstruction =
+          '提示された睡眠データを考慮し、睡眠の質を高めるための'
+          '「おすすめの食べ物・飲み物（夕食に良いもの、就寝前に最適なホットドリンク、避けるべきものなど）」を'
+          '親身に、300文字程度で具体的に提案してください。$noMarkdown';
     } else if (type == AdviceType.routine) {
-      targetInstruction = '提示された睡眠データを考慮し、入眠をスムーズにするための「おすすめの夜のルーティン（ストレッチ、入浴タイミング、デジタルデトックスなど）」を親身に、300文字程度でタイムラインを交えて具体的に提案してください。';
+      targetInstruction =
+          '提示された睡眠データを考慮し、入眠をスムーズにするための'
+          '「おすすめの夜のルーティン（ストレッチ、入浴タイミング、デジタルデトックスなど）」を'
+          '親身に、300文字程度でタイムラインを交えて具体的に提案してください。$noMarkdown';
     }
 
     return '''あなたは睡眠専門のAIアドバイザーです。
@@ -225,7 +315,54 @@ $targetInstruction
       ),
       body: _session == null
           ? _buildNoData()
-          : _buildContent(_session!),
+          : Column(
+              children: [
+                if (_dateSessions.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: _sessionOffset > 0
+                              ? () => _switchSession(_sessionOffset - 1)
+                              : null,
+                          iconSize: 20,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            '${_sessionOffset + 1} / ${_dateSessions.length} 件目',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: _sessionOffset < _dateSessions.length - 1
+                              ? () => _switchSession(_sessionOffset + 1)
+                              : null,
+                          iconSize: 20,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                      ],
+                    ),
+                  ),
+                Expanded(child: _buildContent(_session!)),
+              ],
+            ),
     );
   }
 
@@ -307,11 +444,9 @@ $targetInstruction
           const SizedBox(height: 24),
 
           // 通常のAIアドバイスセクション
-          const Text(
-            'アドバイス',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
+          const Text('アドバイス',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
@@ -325,7 +460,7 @@ $targetInstruction
 
           const SizedBox(height: 24),
 
-          // ★ 新設：特化型AIアドバイスボタンセクション
+          // ★ 特化型AIアドバイスボタンセクション
           const Text(
             '睡眠の質を高めるおすすめ項目',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -338,8 +473,8 @@ $targetInstruction
               _buildSpecialButton(session, AdviceType.routine, '🧘 ルーティン', Colors.deepOrange),
             ],
           ),
-          
-          // ★ 新設：特化型アドバイスの結果表示枠
+
+          // ★ 特化型アドバイスの結果表示枠
           if (_selectedAdviceType != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -350,7 +485,7 @@ $targetInstruction
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
               ),
-              child: _buildSpecialAdviceContent(),
+              child: _buildSpecialAdviceContent(session),
             ),
           ],
 
@@ -407,7 +542,8 @@ $targetInstruction
             children: [
               Icon(Icons.error_outline, color: Colors.red, size: 20),
               SizedBox(width: 8),
-              Text('分析に失敗しました。再試行してください。', style: TextStyle(color: Colors.red)),
+              Text('分析に失敗しました。再試行してください。',
+                  style: TextStyle(color: Colors.red)),
             ],
           ),
           if (_errorDetail != null) ...[
@@ -427,7 +563,7 @@ $targetInstruction
           ],
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: () => _runAiAnalysis(session, _memo ?? ''),
+            onPressed: () => _runAiAnalysis(session, _memo ?? '', forceRefresh: true),
             icon: const Icon(Icons.refresh),
             label: const Text('再試行'),
           ),
@@ -449,7 +585,7 @@ $targetInstruction
           const SizedBox(height: 8),
           Text(
             _aiAdvice!,
-            style: const TextStyle(fontSize: 15, height: 1.5),
+            style: const TextStyle(fontSize: 15, height: 1.6),
           ),
         ],
       );
@@ -458,8 +594,9 @@ $targetInstruction
     return const SizedBox.shrink();
   }
 
-  // ★ 新設：特化型アドバイスボタンのビルドメソッド
-  Widget _buildSpecialButton(SleepSession session, AdviceType type, String label, Color themeColor) {
+  // ★ 特化型アドバイスボタンのビルドメソッド
+  Widget _buildSpecialButton(
+      SleepSession session, AdviceType type, String label, Color themeColor) {
     final isSelected = _selectedAdviceType == type;
     return Expanded(
       child: Padding(
@@ -472,17 +609,18 @@ $targetInstruction
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
-          onPressed: _isLoadingSpecialAi 
-              ? null 
+          onPressed: _isLoadingSpecialAi
+              ? null
               : () => _fetchSpecialAdvice(session, _memo ?? '', type),
-          child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          child: Text(label,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
         ),
       ),
     );
   }
 
-  // ★ 新設：特化型アドバイスエリアの中身表示
-  Widget _buildSpecialAdviceContent() {
+  // ★ 特化型アドバイスエリアの中身表示
+  Widget _buildSpecialAdviceContent(SleepSession session) {
     if (_isLoadingSpecialAi) {
       return const Center(
         child: Padding(
@@ -517,7 +655,8 @@ $targetInstruction
           children: [
             Icon(icon, color: iconColor, size: 22),
             const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         const SizedBox(height: 10),
@@ -539,3 +678,4 @@ $targetInstruction
     );
   }
 }
+
