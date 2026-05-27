@@ -38,16 +38,19 @@ Future<void> _requestNotificationPermission() async {
 
 const _alarmMinuteGranularity = 5;
 
-/// 参考 UI に近いアラーム設定画面
+// ── カラーパレット ────────────────────────────────────────────
+const _bgTop    = Color(0xFF0A1628); // 深い紺
+const _bgBottom = Color(0xFF1A2F4E); // やや明るい紺
+const _accent   = Color(0xFF4FC3F7); // 水色アクセント
+const _startBg  = Color(0xFF2ECC71); // START ボタン緑
+const _stopBg   = Color(0xFFE74C3C); // STOP ボタン赤
+
+/// 睡眠アプリ アラーム設定画面
 class AlarmPage extends StatefulWidget {
   const AlarmPage({super.key, this.onNavigateToGraph, this.onNavigateToFb});
 
   final VoidCallback? onNavigateToGraph;
   final VoidCallback? onNavigateToFb;
-
-  static const backgroundColor = Color(0xFFE6E9EF);
-  static const startButtonColor = Color(0xFF6DBB81);
-  static const pickerBorderColor = Color(0xFF1C2B45);
 
   @override
   State<AlarmPage> createState() => _AlarmPageState();
@@ -284,22 +287,37 @@ void dispose() {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return ColoredBox(
-      color: AlarmPage.backgroundColor,
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_bgTop, _bgBottom],
+        ),
+      ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
+              // ── キャプションラベル ──────────────────────────
+              const Text(
+                'アラーム設定',
+                style: TextStyle(
+                  fontSize: 13,
+                  letterSpacing: 3,
+                  color: Colors.white54,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // ── 時刻ピッカー ────────────────────────────────
               Expanded(
                 child: Center(
                   child: _AlarmTimePickerCard(
                     itemExtent: _itemExtent,
-                    borderColor: AlarmPage.pickerBorderColor,
                     hourCtrl: _hourCtrl,
                     minuteCtrl: _minuteCtrl,
                     onHourChanged: (h) => setState(() => _hour = h),
@@ -307,71 +325,77 @@ void dispose() {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'アラーム設定',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 12),
+              // ── 起床ウィンドウ ──────────────────────────────
               Text(
                 _wakeWindowLabel(),
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: _accent,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
-                  color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 28),
+              // ── START / STOP 円形ボタン ────────────────────
               ValueListenableBuilder<RecorderState>(
                 valueListenable: _recorderService.stateNotifier,
                 builder: (context, state, _) {
                   final isRecording = state == RecorderState.recording;
-                  return SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: isRecording
-                            ? Colors.redAccent
-                            : AlarmPage.startButtonColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: const StadiumBorder(),
-                        textStyle: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
+                  final btnColor = isRecording ? _stopBg : _startBg;
+                  return GestureDetector(
+                    onTap: isRecording ? _stopRecording : _startRecording,
+                    child: Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: btnColor,
+                        boxShadow: [
+                          BoxShadow(
+                            color: btnColor.withValues(alpha: 0.5),
+                            blurRadius: 24,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          isRecording ? 'STOP' : 'START',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.5,
+                          ),
                         ),
                       ),
-                      onPressed: isRecording ? _stopRecording : _startRecording,
-                      child: Text(isRecording ? 'STOP' : 'START'),
                     ),
                   );
                 },
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _createDummyData,
-                  icon: const Icon(Icons.data_object),
-                  label: const Text('ダミーデータ作成'),
+              const SizedBox(height: 16),
+              // ── ダミーデータボタン（目立たせない） ──────────
+              TextButton.icon(
+                onPressed: _createDummyData,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white38,
                 ),
+                icon: const Icon(Icons.data_object, size: 16),
+                label: const Text('ダミーデータ作成'),
               ),
               if (_lastResult != null) ...[
                 const SizedBox(height: 6),
                 _SleepResultSummary(result: _lastResult!),
               ],
               if (_lastDummySessionId != null) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   '保存済みダミーID: $_lastDummySessionId',
-                  style: textTheme.bodySmall?.copyWith(color: Colors.black54),
+                  style: const TextStyle(fontSize: 11, color: Colors.white30),
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               const _AdBannerPlaceholder(),
               const SizedBox(height: 8),
             ],
@@ -390,9 +414,7 @@ class _SleepResultSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Colors.black54,
-        );
+    const style = TextStyle(fontSize: 12, color: Colors.white70);
     final onset = result.session.sleepOnsetEpochMs;
     final latencyMin = onset != null
         ? ((onset - result.session.startAtEpochMs) / 1000 / 60).floor()
@@ -410,6 +432,7 @@ class _SleepResultSummary extends StatelessWidget {
               ? '入眠潜時: $latencyMin分'
               : '入眠検出: なし（動きが多かったか計測時間が短い可能性があります）',
           style: style,
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -419,7 +442,6 @@ class _SleepResultSummary extends StatelessWidget {
 class _AlarmTimePickerCard extends StatelessWidget {
   const _AlarmTimePickerCard({
     required this.itemExtent,
-    required this.borderColor,
     required this.hourCtrl,
     required this.minuteCtrl,
     required this.onHourChanged,
@@ -427,7 +449,6 @@ class _AlarmTimePickerCard extends StatelessWidget {
   });
 
   final double itemExtent;
-  final Color borderColor;
   final FixedExtentScrollController hourCtrl;
   final FixedExtentScrollController minuteCtrl;
   final ValueChanged<int> onHourChanged;
@@ -435,75 +456,64 @@ class _AlarmTimePickerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final highlight = Colors.lightBlueAccent.withValues(alpha: 0.28);
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: borderColor, width: 2),
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.white.withValues(alpha: 0.35),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          height: itemExtent * 5,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _WheelColumn(
-                      controller: hourCtrl,
-                      itemExtent: itemExtent,
-                      itemCount: 24,
-                      labelBuilder: (i) => '$i',
-                      onSelected: onHourChanged,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      ':',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: borderColor,
-                          ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _WheelColumn(
-                      controller: minuteCtrl,
-                      itemExtent: itemExtent,
-                      itemCount: 12,
-                      labelBuilder: (i) => (i * _alarmMinuteGranularity)
-                          .toString()
-                          .padLeft(2, '0'),
-                      onSelected: (idx) =>
-                          onMinuteChanged(idx * _alarmMinuteGranularity),
-                    ),
-                  ),
-                ],
+    return SizedBox(
+      height: itemExtent * 7,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 選択中アイテムの薄い帯
+          IgnorePointer(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Container(
+                height: itemExtent,
+                decoration: BoxDecoration(
+                  color: _accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              IgnorePointer(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Container(
-                    height: itemExtent,
-                    decoration: BoxDecoration(
-                      color: highlight,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.lightBlue.shade100.withValues(alpha: 0.6),
-                      ),
-                    ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 110,
+                child: _WheelColumn(
+                  controller: hourCtrl,
+                  itemExtent: itemExtent,
+                  itemCount: 24,
+                  labelBuilder: (i) => '$i',
+                  onSelected: onHourChanged,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  ':',
+                  style: TextStyle(
+                    fontSize: 36,
+                    color: _accent,
+                    fontWeight: FontWeight.w300,
                   ),
+                ),
+              ),
+              SizedBox(
+                width: 110,
+                child: _WheelColumn(
+                  controller: minuteCtrl,
+                  itemExtent: itemExtent,
+                  itemCount: 12,
+                  labelBuilder: (i) => (i * _alarmMinuteGranularity)
+                      .toString()
+                      .padLeft(2, '0'),
+                  onSelected: (idx) =>
+                      onMinuteChanged(idx * _alarmMinuteGranularity),
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -546,10 +556,11 @@ class _WheelColumn extends StatelessWidget {
             return Center(
               child: Text(
                 labelBuilder(index),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
+                style: const TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.w200,
+                  color: Colors.white,
+                ),
               ),
             );
           },
@@ -569,16 +580,13 @@ class _AdBannerPlaceholder extends StatelessWidget {
       height: 52,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.grey.shade300,
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey.shade400),
+        border: Border.all(color: Colors.white12),
       ),
-      child: Text(
+      child: const Text(
         '広告枠（プレースホルダー）',
-        style: Theme.of(context)
-            .textTheme
-            .labelMedium
-            ?.copyWith(color: Colors.grey.shade700),
+        style: TextStyle(fontSize: 12, color: Colors.white30),
       ),
     );
   }
