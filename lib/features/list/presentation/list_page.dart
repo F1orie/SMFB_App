@@ -53,14 +53,6 @@ class _ListPageState extends State<ListPage> {
     return '${mins ~/ 60}時間${mins % 60}分';
   }
 
-  /// 睡眠時間に応じたスコアカラーを返す
-  Color _scoreColor(SleepSession session) {
-    if (session.endAtEpochMs == null) return Colors.orange;
-    final mins = (session.endAtEpochMs! - session.startAtEpochMs) ~/ 60000;
-    if (mins >= 420) return const Color(0xFF4FC3F7); // 7時間以上 → 水色
-    if (mins >= 300) return const Color(0xFF81C784); // 5時間以上 → 緑
-    return const Color(0xFFFF8A65); // 5時間未満 → オレンジ
-  }
 
   Future<void> _deleteSession(SleepSession session) async {
     final confirmed = await showDialog<bool>(
@@ -348,7 +340,6 @@ class _ListPageState extends State<ListPage> {
           child: _SessionCard(
             session: session,
             note: note,
-            scoreColor: _scoreColor(session),
             dateLabel: _dateLabel(dt),
             startLabel: _timeLabel(session.startAtEpochMs),
             endLabel: session.endAtEpochMs != null
@@ -401,7 +392,6 @@ class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
     required this.note,
-    required this.scoreColor,
     required this.dateLabel,
     required this.startLabel,
     required this.endLabel,
@@ -411,7 +401,6 @@ class _SessionCard extends StatelessWidget {
 
   final SleepSession session;
   final SleepNote? note;
-  final Color scoreColor;
   final String dateLabel;
   final String startLabel;
   final String endLabel;
@@ -427,10 +416,9 @@ class _SessionCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
-          // スコアカラーをうっすら背景に乗せる
-          color: scoreColor.withValues(alpha: 0.10),
+          color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: scoreColor.withValues(alpha: 0.25)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
