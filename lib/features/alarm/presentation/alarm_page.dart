@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../application/dummy_sleep_data_service.dart';
 import '../application/sleep_recorder_service.dart';
@@ -78,6 +79,16 @@ class _AlarmPageState extends State<AlarmPage> {
       initialItem: _minute ~/ _alarmMinuteGranularity,
     );
     initAlarmNotifications();
+    _applyStoredSettings();
+  }
+
+  /// SharedPreferences に保存された設定をサービスに反映する。
+  Future<void> _applyStoredSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final normFactor = prefs.getDouble('sensor_norm_factor') ?? 2.0;
+    _recorderService.setNormFactor(normFactor);
+    final volume = prefs.getDouble('alarm_volume') ?? 0.8;
+    await _alarmSoundService.setVolume(volume);
   }
 
   @override
