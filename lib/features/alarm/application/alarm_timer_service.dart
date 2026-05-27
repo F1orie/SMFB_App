@@ -33,19 +33,14 @@ class AlarmTimerService {
 
   void snooze({
     required void Function() onRing,
+    int snoozeMinutes = 5,
   }) {
     _timer?.cancel();
 
-    final DateTime snoozeTime = DateTime.now().add(
-      const Duration(minutes: 5),
-    );
+    final snoozeDuration = Duration(minutes: snoozeMinutes);
+    _scheduledAlarmTime = DateTime.now().add(snoozeDuration);
 
-    _scheduledAlarmTime = snoozeTime;
-
-    _timer = Timer(
-      const Duration(minutes: 5),
-      onRing,
-    );
+    _timer = Timer(snoozeDuration, onRing);
   }
 
   void cancel() {
