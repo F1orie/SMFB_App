@@ -41,7 +41,11 @@ class ApiClient {
         'parts': [{'text': systemPrompt}],
       },
       'contents': contents,
-      'generationConfig': {'maxOutputTokens': 1500},
+      'generationConfig': {
+        'maxOutputTokens': 3000,
+        // thinking を無効化して出力トークンをすべてレスポンスに使う
+        'thinkingConfig': {'thinkingBudget': 0},
+      },
     });
 
     // 503 は一時的な過負荷なので最大2回リトライ
@@ -93,10 +97,20 @@ class ApiClient {
 
   String _stripMarkdown(String text) {
     return text
-        .replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m.group(1)!)
-        .replaceAllMapped(RegExp(r'\*(.+?)\*'), (m) => m.group(1)!)
-        .replaceAll(RegExp(r'#+\s'), '')
+        // 閉じタグのある太字・斜体を中身だけに（複数行対応）
+        .replaceAllMapped(RegExp(r'\*\*(.+?)\*\*', dotAll: true), (m) => m.group(1)!)
+        .replaceAll('**', '') // 閉じられていない ** を除去（トークン切れ対策）
+        .replaceAllMapped(RegExp(r'\*(.+?)\*', dotAll: true), (m) => m.group(1)!)
+        // リスト記号（* / - で始まる行）を除去
+        .replaceAll(RegExp(r'^\s*[*\-]\s', multiLine: true), '')
+        .replaceAll('*', '') // 残った孤立 * を除去
+        // 見出し記号を除去
+        .replaceAll(RegExp(r'^#+\s', multiLine: true), '')
+        // インラインコードを中身だけに
         .replaceAllMapped(RegExp(r'`(.+?)`'), (m) => m.group(1)!)
+        .replaceAll('`', '')
+        // 余分な空行をまとめる
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
   }
 }
