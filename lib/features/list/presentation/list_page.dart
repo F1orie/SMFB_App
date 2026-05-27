@@ -21,6 +21,7 @@ class _ListPageState extends State<ListPage> {
   List<SleepSession> _sessions = [];
 
   static const _weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+  static const _kBackground = Color(0xFF071C35);
 
   @override
   void initState() {
@@ -50,6 +51,15 @@ class _ListPageState extends State<ListPage> {
     if (s.endAtEpochMs == null) return '--';
     final mins = (s.endAtEpochMs! - s.startAtEpochMs) ~/ 1000 ~/ 60;
     return '${mins ~/ 60}時間${mins % 60}分';
+  }
+
+  /// 睡眠時間に応じたスコアカラーを返す
+  Color _scoreColor(SleepSession session) {
+    if (session.endAtEpochMs == null) return Colors.orange;
+    final mins = (session.endAtEpochMs! - session.startAtEpochMs) ~/ 60000;
+    if (mins >= 420) return const Color(0xFF4FC3F7); // 7時間以上 → 水色
+    if (mins >= 300) return const Color(0xFF81C784); // 5時間以上 → 緑
+    return const Color(0xFFFF8A65); // 5時間未満 → オレンジ
   }
 
   Future<void> _deleteSession(SleepSession session) async {
@@ -231,7 +241,13 @@ class _ListPageState extends State<ListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('睡眠記録')),
+      backgroundColor: _kBackground,
+      appBar: AppBar(
+        title: const Text('睡眠記録'),
+        backgroundColor: _kBackground,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: _sessions.isEmpty ? _buildEmpty() : _buildList(),
     );
   }
@@ -241,16 +257,17 @@ class _ListPageState extends State<ListPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.bedtime_outlined, size: 64, color: Colors.grey.shade400),
+          Icon(Icons.bedtime_outlined,
+              size: 64, color: Colors.white.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'まだ記録がありません',
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 16, color: Colors.white54),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'アラーム画面でSTARTして睡眠を記録してください',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            style: TextStyle(fontSize: 12, color: Colors.white38),
             textAlign: TextAlign.center,
           ),
         ],
@@ -258,15 +275,25 @@ class _ListPageState extends State<ListPage> {
     );
   }
 
-  Widget _buildList() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      itemCount: _sessions.length,
-      itemBuilder: (context, index) {
-        final session = _sessions[index];
-        final notes = SleepRepository.instance.notesForSession(session.id);
-        final note = notes.isNotEmpty ? notes.last : null;
-        return Dismissible(
+  /// 月ごとのヘッダー付きリストアイテムを生成する
+  List<Widget> _buildItems() {
+    final items = <Widget>[];
+    String? lastMonth;
+
+    for (final session in _sessions) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(session.startAtEpochMs);
+      final monthKey = '${dt.year}年${dt.month}月';
+
+      if (monthKey != lastMonth) {
+        items.add(_MonthHeader(label: monthKey));
+        lastMonth = monthKey;
+      }
+
+      final notes = SleepRepository.instance.notesForSession(session.id);
+      final note = notes.isNotEmpty ? notes.last : null;
+
+      items.add(
+        Dismissible(
           key: ValueKey(session.id),
           direction: DismissDirection.endToStart,
           background: Container(
@@ -274,15 +301,16 @@ class _ListPageState extends State<ListPage> {
             padding: const EdgeInsets.only(right: 24),
             margin: const EdgeInsets.symmetric(vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.red.shade400,
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.red.shade700.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.delete_outline, color: Colors.white, size: 28),
                 SizedBox(height: 4),
-                Text('削除', style: TextStyle(color: Colors.white, fontSize: 12)),
+                Text('削除',
+                    style: TextStyle(color: Colors.white, fontSize: 12)),
               ],
             ),
           ),
@@ -300,8 +328,8 @@ class _ListPageState extends State<ListPage> {
                     child: const Text('キャンセル'),
                   ),
                   FilledButton(
-                    style: FilledButton.styleFrom(
-                        backgroundColor: Colors.red),
+                    style:
+                        FilledButton.styleFrom(backgroundColor: Colors.red),
                     onPressed: () => Navigator.of(ctx).pop(true),
                     child: const Text('削除'),
                   ),
@@ -320,9 +348,8 @@ class _ListPageState extends State<ListPage> {
           child: _SessionCard(
             session: session,
             note: note,
-            dateLabel: _dateLabel(
-              DateTime.fromMillisecondsSinceEpoch(session.startAtEpochMs),
-            ),
+            scoreColor: _scoreColor(session),
+            dateLabel: _dateLabel(dt),
             startLabel: _timeLabel(session.startAtEpochMs),
             endLabel: session.endAtEpochMs != null
                 ? _timeLabel(session.endAtEpochMs!)
@@ -330,16 +357,51 @@ class _ListPageState extends State<ListPage> {
             durationLabel: _durationLabel(session),
             onTap: () => _showActionSheet(session, note),
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    return items;
+  }
+
+  Widget _buildList() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      children: _buildItems(),
     );
   }
 }
+
+// ── _MonthHeader ────────────────────────────────────────────────
+
+class _MonthHeader extends StatelessWidget {
+  const _MonthHeader({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.5),
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+// ── _SessionCard ────────────────────────────────────────────────
 
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
     required this.note,
+    required this.scoreColor,
     required this.dateLabel,
     required this.startLabel,
     required this.endLabel,
@@ -349,6 +411,7 @@ class _SessionCard extends StatelessWidget {
 
   final SleepSession session;
   final SleepNote? note;
+  final Color scoreColor;
   final String dateLabel;
   final String startLabel;
   final String endLabel;
@@ -359,68 +422,106 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    dateLabel,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.bold),
-                  ),
-                  _StatusBadge(isRecording: _isRecording),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _StatItem(
-                      icon: Icons.bedtime, label: '就寝', value: startLabel),
-                  _StatItem(
-                      icon: Icons.wb_sunny, label: '起床', value: endLabel),
-                  _StatItem(
-                      icon: Icons.timer, label: '時間', value: durationLabel),
-                ],
-              ),
-              if (note != null && note!.memo.isNotEmpty) ...[
-                const Divider(height: 20),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.note_alt_outlined,
-                        size: 16, color: Colors.blueGrey),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        note!.memo,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 13, color: Colors.black87),
-                      ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 左端スコアバー
+                Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: scoreColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
                     ),
-                  ],
+                  ),
+                ),
+                // カード本体
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              dateLabel,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            _StatusBadge(isRecording: _isRecording),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _StatItem(
+                                icon: Icons.bedtime,
+                                label: '就寝',
+                                value: startLabel),
+                            _StatItem(
+                                icon: Icons.wb_sunny,
+                                label: '起床',
+                                value: endLabel),
+                            _StatItem(
+                                icon: Icons.timer,
+                                label: '時間',
+                                value: durationLabel),
+                          ],
+                        ),
+                        if (note != null && note!.memo.isNotEmpty) ...[
+                          const Divider(height: 20, color: Colors.white12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.note_alt_outlined,
+                                  size: 16,
+                                  color: Colors.white.withValues(alpha: 0.4)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  note!.memo,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 13, color: Colors.white60),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+// ── _StatusBadge ────────────────────────────────────────────────
 
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.isRecording});
@@ -431,17 +532,27 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isRecording ? Colors.orange : Colors.green,
+        color: isRecording
+            ? Colors.orange.withValues(alpha: 0.2)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isRecording ? Colors.orange : Colors.white24,
+        ),
       ),
       child: Text(
         isRecording ? '記録中' : '完了',
-        style: const TextStyle(
-            fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: isRecording ? Colors.orange : Colors.white54,
+        ),
       ),
     );
   }
 }
+
+// ── _StatItem ───────────────────────────────────────────────────
 
 class _StatItem extends StatelessWidget {
   const _StatItem({
@@ -458,12 +569,18 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, size: 20, color: Colors.blueGrey),
+        Icon(icon,
+            size: 20,
+            color: const Color(0xFF4FC3F7).withValues(alpha: 0.8)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: Colors.white54)),
         const SizedBox(height: 2),
         Text(value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
       ],
     );
   }
