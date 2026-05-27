@@ -429,75 +429,90 @@ class _SessionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(16),
-          // 左端をスコアカラー、他3辺を薄いボーダーで描画
-          // → IntrinsicHeight 不要でオーバーフロー根絶
-          border: Border(
-            left: BorderSide(color: scoreColor, width: 4),
-            top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-            right: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-          ),
+          // 均一ボーダー（Web で non-uniform border + borderRadius は描画不具合あり）
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Stack(
+          children: [
+            // コンテンツ（左4px分を余白に取る）
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    dateLabel,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  _StatusBadge(isRecording: _isRecording),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _StatItem(
-                      icon: Icons.bedtime,
-                      label: '就寝',
-                      value: startLabel),
-                  _StatItem(
-                      icon: Icons.wb_sunny,
-                      label: '起床',
-                      value: endLabel),
-                  _StatItem(
-                      icon: Icons.timer,
-                      label: '時間',
-                      value: durationLabel),
-                ],
-              ),
-              if (note != null && note!.memo.isNotEmpty) ...[
-                const Divider(height: 20, color: Colors.white12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.note_alt_outlined,
-                        size: 16,
-                        color: Colors.white.withValues(alpha: 0.4)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        note!.memo,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        dateLabel,
                         style: const TextStyle(
-                            fontSize: 13, color: Colors.white60),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
+                      _StatusBadge(isRecording: _isRecording),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _StatItem(
+                          icon: Icons.bedtime,
+                          label: '就寝',
+                          value: startLabel),
+                      _StatItem(
+                          icon: Icons.wb_sunny,
+                          label: '起床',
+                          value: endLabel),
+                      _StatItem(
+                          icon: Icons.timer,
+                          label: '時間',
+                          value: durationLabel),
+                    ],
+                  ),
+                  if (note != null && note!.memo.isNotEmpty) ...[
+                    const Divider(height: 20, color: Colors.white12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.note_alt_outlined,
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.4)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            note!.memo,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.white60),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
+                ],
+              ),
+            ),
+            // 左端スコアカラーバー（Stack + Positioned でオーバーフローなし）
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: scoreColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(15),
+                    bottomLeft: Radius.circular(15),
+                  ),
                 ),
-              ],
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
