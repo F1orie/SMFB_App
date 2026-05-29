@@ -543,7 +543,7 @@ class _WheelColumn extends StatelessWidget {
                 labelBuilder(index),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: Colors.white,
                 ),
               ),
             );
