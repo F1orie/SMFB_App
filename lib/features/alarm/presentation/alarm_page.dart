@@ -39,11 +39,11 @@ Future<void> _requestNotificationPermission() async {
 const _alarmMinuteGranularity = 5;
 
 // ── カラーパレット ────────────────────────────────────────────
-const _bgTop    = Color(0xFF0A1628); // 深い紺
-const _bgBottom = Color(0xFF1A2F4E); // やや明るい紺
-const _accent   = Color(0xFF4FC3F7); // 水色アクセント
-const _startBg  = Color(0xFF2ECC71); // START ボタン緑
-const _stopBg   = Color(0xFFE74C3C); // STOP ボタン赤
+const _bgTop    = Color(0xFF0D1B3E); // ディープネイビー
+const _bgBottom = Color(0xFF1A1040); // ソフトインディゴ
+const _accent   = Color(0xFFA78BFA); // ソフトパープル
+const _startBg  = Color(0xFF6EE7B7); // ソフトグリーン
+const _stopBg   = Color(0xFFFCA5A5); // ソフトレッド
 
 /// 睡眠アプリ アラーム設定画面
 class AlarmPage extends StatefulWidget {
@@ -68,7 +68,6 @@ class _AlarmPageState extends State<AlarmPage> {
   final AlarmTimerService _alarmTimerService = AlarmTimerService();
 
   SleepRecordResult? _lastResult;
-  String? _lastDummySessionId;
   Timer? _notificationTimer;
 
   int _hour = 7;
@@ -263,15 +262,9 @@ class _AlarmPageState extends State<AlarmPage> {
 
     if (picked == null || !mounted) return;
 
-    final sessionId = await _dummySleepDataService.generateAndSave(
-      date: picked,
-    );
+    await _dummySleepDataService.generateAndSave(date: picked);
 
     if (!mounted) return;
-
-    setState(() {
-      _lastDummySessionId = sessionId;
-    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${picked.month}月${picked.day}日のダミーデータを保存しました')),
@@ -280,121 +273,98 @@ class _AlarmPageState extends State<AlarmPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [_bgTop, _bgBottom],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const SizedBox(height: 28),
-              // ── キャプションラベル ──────────────────────────
-              const Text(
-                'アラーム設定',
-                style: TextStyle(
-                  fontSize: 13,
-                  letterSpacing: 3,
-                  color: Colors.white54,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 12),
-              // ── 時刻ピッカー ────────────────────────────────
-              Expanded(
-                child: Center(
-                  child: _AlarmTimePickerCard(
-                    itemExtent: _itemExtent,
-                    hourCtrl: _hourCtrl,
-                    minuteCtrl: _minuteCtrl,
-                    onHourChanged: (h) => setState(() => _hour = h),
-                    onMinuteChanged: (m) => setState(() => _minute = m),
+    return ValueListenableBuilder<RecorderState>(
+      valueListenable: _recorderService.stateNotifier,
+      builder: (context, state, _) {
+        final isRecording = state == RecorderState.recording;
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_bgTop, _bgBottom],
+            ),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                // ── ステータスバッジ ─────────────────────────
+                _StatusPill(isRecording: isRecording),
+                const SizedBox(height: 24),
+                // ── 大型時刻表示 ─────────────────────────────
+                Text(
+                  '${_hour.toString().padLeft(2, '0')}:${_minute.toString().padLeft(2, '0')}',
+                  style: const TextStyle(
+                    fontSize: 76,
+                    fontWeight: FontWeight.w200,
+                    color: Colors.white,
+                    letterSpacing: 6,
+                    height: 1.0,
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              // ── 起床ウィンドウ ──────────────────────────────
-              Text(
-                _wakeWindowLabel(),
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: _accent,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
+                const SizedBox(height: 8),
+                // ── 起床ウィンドウ ───────────────────────────
+                Text(
+                  '起床ウィンドウ  ${_wakeWindowLabel()}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _accent,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 28),
-              // ── START / STOP 円形ボタン ────────────────────
-              ValueListenableBuilder<RecorderState>(
-                valueListenable: _recorderService.stateNotifier,
-                builder: (context, state, _) {
-                  final isRecording = state == RecorderState.recording;
-                  final btnColor = isRecording ? _stopBg : _startBg;
-                  return GestureDetector(
-                    onTap: isRecording ? _stopRecording : _startRecording,
+                const SizedBox(height: 28),
+                // ── 時刻ピッカー ─────────────────────────────
+                Expanded(
+                  child: Center(
                     child: Container(
-                      width: 88,
-                      height: 88,
+                      margin: const EdgeInsets.symmetric(horizontal: 32),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: btnColor,
-                        boxShadow: [
-                          BoxShadow(
-                            color: btnColor.withValues(alpha: 0.5),
-                            blurRadius: 24,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          isRecording ? 'STOP' : 'START',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5,
-                          ),
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: _accent.withValues(alpha: 0.2),
                         ),
                       ),
+                      child: _AlarmTimePickerCard(
+                        itemExtent: _itemExtent,
+                        hourCtrl: _hourCtrl,
+                        minuteCtrl: _minuteCtrl,
+                        onHourChanged: (h) => setState(() => _hour = h),
+                        onMinuteChanged: (m) => setState(() => _minute = m),
+                      ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              // ── ダミーデータボタン（目立たせない） ──────────
-              TextButton.icon(
-                onPressed: _createDummyData,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white38,
+                  ),
                 ),
-                icon: const Icon(Icons.data_object, size: 16),
-                label: const Text('ダミーデータ作成'),
-              ),
-              if (_lastResult != null) ...[
+                const SizedBox(height: 28),
+                // ── メインボタン ─────────────────────────────
+                _CalmButton(
+                  isRecording: isRecording,
+                  onTap: isRecording ? _stopRecording : _startRecording,
+                ),
+                const SizedBox(height: 16),
+                if (_lastResult != null) ...[
+                  _SleepResultSummary(result: _lastResult!),
+                  const SizedBox(height: 8),
+                ],
+                TextButton.icon(
+                  onPressed: _createDummyData,
+                  style: TextButton.styleFrom(foregroundColor: Colors.white24),
+                  icon: const Icon(Icons.data_object, size: 14),
+                  label: const Text('ダミーデータ作成',
+                      style: TextStyle(fontSize: 11)),
+                ),
                 const SizedBox(height: 6),
-                _SleepResultSummary(result: _lastResult!),
+                const _AdBannerPlaceholder(),
+                const SizedBox(height: 8),
               ],
-              if (_lastDummySessionId != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '保存済みダミーID: $_lastDummySessionId',
-                  style: const TextStyle(fontSize: 11, color: Colors.white30),
-                ),
-              ],
-              const SizedBox(height: 10),
-              const _AdBannerPlaceholder(),
-              const SizedBox(height: 8),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -579,6 +549,99 @@ class _AdBannerPlaceholder extends StatelessWidget {
         style: Theme.of(
           context,
         ).textTheme.labelMedium?.copyWith(color: Colors.grey.shade700),
+      ),
+    );
+  }
+}
+
+// ── Calm Night UIウィジェット群 ───────────────────────────────
+
+/// ステータスピル（計測中 / 待機中）
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.isRecording});
+  final bool isRecording;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isRecording ? _stopBg : _accent;
+    final label = isRecording ? '計測中' : '待機中';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6)],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 穏やかなグラデーションボタン
+class _CalmButton extends StatelessWidget {
+  const _CalmButton({required this.isRecording, required this.onTap});
+  final bool isRecording;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final btnColor = isRecording ? _stopBg : _startBg;
+    final label = isRecording ? 'STOP' : 'START';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 100,
+        height: 100,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              btnColor.withValues(alpha: 0.9),
+              btnColor.withValues(alpha: 0.5),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: btnColor.withValues(alpha: 0.35),
+              blurRadius: 28,
+              spreadRadius: 4,
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ),
       ),
     );
   }
