@@ -13,6 +13,10 @@ import 'package:smf_app/features/motion/application/motion_state.dart';
 import 'package:smf_app/features/motion/infrastructure/motion_background_controller.dart';
 import 'package:smf_app/features/motion/presentation/motion_page.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/breathing_bottom_ball_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/moving_bottom_ball_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/tornado_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/sleepy_breathing_balls_motion.dart';
 import 'package:smf_app/features/list/presentation/list_page.dart';
 import 'package:smf_app/features/settings/presentation/settings_page.dart';
 
@@ -105,13 +109,26 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (MotionState.pendulumEnabled.value) {
       MotionState.pendulumShowInShell.value = true;
     }
+    if (MotionState.breathingBottomEnabled.value) {
+      MotionState.breathingBottomShowInShell.value = true;
+    }
+    if (MotionState.movingBottomEnabled.value) {
+      MotionState.movingBottomShowInShell.value = true;
+    }
+    if (MotionState.tornadoEnabled.value) {
+      MotionState.tornadoShowInShell.value = true;
+    }
+    if (MotionState.sleepyBreathingEnabled.value) {
+      MotionState.sleepyBreathingShowInShell.value = true;
+    }
   }
 
   Future<void> _onAppPaused() async {
-    if (!MotionState.pendulumEnabled.value) return;
     if (!MotionBackgroundController.triesSystemOverlay) return;
-    MotionState.pendulumShowInShell.value = false;
-    await MotionBackgroundController.showOverlayWhenAppBackgrounded();
+    if (MotionState.pendulumEnabled.value) {
+      MotionState.pendulumShowInShell.value = false;
+      await MotionBackgroundController.showOverlayWhenAppBackgrounded();
+    }
   }
 
   @override
@@ -124,12 +141,25 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           listenable: Listenable.merge([
             MotionState.pendulumEnabled,
             MotionState.pendulumShowInShell,
+            MotionState.breathingBottomEnabled,
+            MotionState.breathingBottomShowInShell,
+            MotionState.movingBottomEnabled,
+            MotionState.movingBottomShowInShell,
+            MotionState.tornadoEnabled,
+            MotionState.tornadoShowInShell,
+            MotionState.sleepyBreathingEnabled,
+            MotionState.sleepyBreathingShowInShell,
           ]),
           builder: (context, _) {
-            final pendulum = MotionState.pendulumEnabled.value;
-            final showInShell = MotionState.pendulumShowInShell.value;
+            final anyEnabled =
+                MotionState.pendulumEnabled.value ||
+                MotionState.breathingBottomEnabled.value ||
+                MotionState.movingBottomEnabled.value ||
+                MotionState.tornadoEnabled.value ||
+                MotionState.sleepyBreathingEnabled.value;
+
             return Scaffold(
-              backgroundColor: pendulum ? Colors.transparent : null,
+              backgroundColor: anyEnabled ? Colors.transparent : null,
               body: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -156,13 +186,34 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                       const MotionPage(),
                     ],
                   ),
-                  if (pendulum && showInShell)
+                  if (MotionState.pendulumEnabled.value &&
+                      MotionState.pendulumShowInShell.value)
                     const Positioned.fill(
                       child: IgnorePointer(
                         child: PendulumBallMotion(
                           period: Duration(milliseconds: 5000),
                         ),
                       ),
+                    ),
+                  if (MotionState.breathingBottomEnabled.value &&
+                      MotionState.breathingBottomShowInShell.value)
+                    const Positioned.fill(
+                      child: IgnorePointer(child: BreathingBottomBallMotion()),
+                    ),
+                  if (MotionState.movingBottomEnabled.value &&
+                      MotionState.movingBottomShowInShell.value)
+                    const Positioned.fill(
+                      child: IgnorePointer(child: MovingBottomBallMotion()),
+                    ),
+                  if (MotionState.tornadoEnabled.value &&
+                      MotionState.tornadoShowInShell.value)
+                    const Positioned.fill(
+                      child: IgnorePointer(child: TornadoTopViewMotion()),
+                    ),
+                  if (MotionState.sleepyBreathingEnabled.value &&
+                      MotionState.sleepyBreathingShowInShell.value)
+                    const Positioned.fill(
+                      child: IgnorePointer(child: SleepyBreathingBallsMotion()),
                     ),
                 ],
               ),
