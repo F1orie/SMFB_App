@@ -1,33 +1,32 @@
 import 'package:flutter/foundation.dart';
+import '../presentation/motion_pattern_registry.dart';
 
+/// モーションパターンの状態管理。
+/// パターンはレジストリから自動生成されるため、新規追加時にこのファイルは変更不要。
 class MotionState {
-  // 背景アニメーション全体のON/OFF状態を管理
-  static final ValueNotifier<bool> pendulumEnabled = ValueNotifier<bool>(false);
-  
-  // アプリの大枠（シェル）での表示状態を管理
-  static final ValueNotifier<bool> pendulumShowInShell = ValueNotifier<bool>(false);
-  
-  // 現在選択されているモーションのパターンIDを管理（今回追加した部分）
-  static final ValueNotifier<String> selectedPattern = ValueNotifier<String>('pendulum');
+  /// パターンID → ON/OFF 状態
+  static final Map<String, ValueNotifier<bool>> enabled = {
+    for (final p in motionPatterns) p.id: ValueNotifier(false),
+  };
 
+  /// パターンID → アプリ内シェルへの表示状態
+  static final Map<String, ValueNotifier<bool>> showInShell = {
+    for (final p in motionPatterns) p.id: ValueNotifier(false),
+  };
 
-  // ==========================================
-  // 以下、エラーを解消するために追加するプロパティ
-  // ==========================================
+  /// 現在選択中のパターンID
+  static final ValueNotifier<String> selectedPattern =
+      ValueNotifier(motionPatterns.first.id);
 
-  // --- 呼吸するボール ---
-  static final ValueNotifier<bool> breathingBottomEnabled = ValueNotifier<bool>(false);
-  static final ValueNotifier<bool> breathingBottomShowInShell = ValueNotifier<bool>(false);
+  /// 有効なパターンが1つでもあるか
+  static bool get anyEnabled =>
+      motionPatterns.any((p) => enabled[p.id]?.value == true);
 
-  // --- 動くボール ---
-  static final ValueNotifier<bool> movingBottomEnabled = ValueNotifier<bool>(false);
-  static final ValueNotifier<bool> movingBottomShowInShell = ValueNotifier<bool>(false);
-
-  // --- 竜巻モーション ---
-  static final ValueNotifier<bool> tornadoEnabled = ValueNotifier<bool>(false);
-  static final ValueNotifier<bool> tornadoShowInShell = ValueNotifier<bool>(false);
-
-  // --- おやすみ呼吸ボール ---
-  static final ValueNotifier<bool> sleepyBreathingEnabled = ValueNotifier<bool>(false);
-  static final ValueNotifier<bool> sleepyBreathingShowInShell = ValueNotifier<bool>(false);
+  /// すべてのパターンをOFFにする
+  static void disableAll() {
+    for (final p in motionPatterns) {
+      enabled[p.id]?.value = false;
+      showInShell[p.id]?.value = false;
+    }
+  }
 }

@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/motion/application/motion_state.dart';
 import '../infrastructure/motion_background_controller.dart';
-import 'motion_patterns/pendulum_ball_motion.dart';
-import 'motion_patterns/breathing_bottom_ball_motion.dart';
-import 'motion_patterns/moving_bottom_ball_motion.dart';
-import 'motion_patterns/tornado_motion.dart';
-import 'motion_patterns/sleepy_breathing_balls_motion.dart';
+import 'motion_pattern_registry.dart';
 
 class MotionPage extends StatefulWidget {
   const MotionPage({super.key});
@@ -19,78 +15,34 @@ class MotionPage extends StatefulWidget {
 }
 
 class _MotionPageState extends State<MotionPage> {
-  // 現在選択されているモーションのIDと、それがONになっているかをローカルで管理
-  String _selectedPattern = 'pendulum';
+  String _selectedPattern = motionPatterns.first.id;
   bool _isTurnedOn = false;
 
-  // 選択されたパターンに応じて、対応する MotionState のフラグを切り替える
-  static void _setMotionState(String pattern, bool isEnabled) {
-    switch (pattern) {
-      case 'pendulum':
-        MotionState.pendulumEnabled.value = isEnabled;
-        MotionState.pendulumShowInShell.value = isEnabled;
-        break;
-      case 'breathing_bottom':
-        MotionState.breathingBottomEnabled.value = isEnabled;
-        MotionState.breathingBottomShowInShell.value = isEnabled;
-        break;
-      case 'moving_bottom':
-        MotionState.movingBottomEnabled.value = isEnabled;
-        MotionState.movingBottomShowInShell.value = isEnabled;
-        break;
-      case 'tornado':
-        MotionState.tornadoEnabled.value = isEnabled;
-        MotionState.tornadoShowInShell.value = isEnabled;
-        break;
-      case 'sleepy_breathing':
-        MotionState.sleepyBreathingEnabled.value = isEnabled;
-        MotionState.sleepyBreathingShowInShell.value = isEnabled;
-        break;
-    }
-  }
-
-  // すべてのモーションフラグを強制的にリセットするヘルパー（排他制御）
-  static void _disableAllMotions() {
-    MotionState.pendulumEnabled.value = false;
-    MotionState.pendulumShowInShell.value = false;
-    
-    MotionState.breathingBottomEnabled.value = false;
-    MotionState.breathingBottomShowInShell.value = false;
-    
-    MotionState.movingBottomEnabled.value = false;
-    MotionState.movingBottomShowInShell.value = false;
-    
-    MotionState.tornadoEnabled.value = false;
-    MotionState.tornadoShowInShell.value = false;
-    
-    MotionState.sleepyBreathingEnabled.value = false;
-    MotionState.sleepyBreathingShowInShell.value = false;
-  }
-
-  // 排他制御と確実なリセットを行うための統合メソッド
-  Future<void> _handleToggle(String pattern, bool isEnabled) async {
+  Future<void> _handleToggle(String patternId, bool isEnabled) async {
     setState(() {
-      _selectedPattern = isEnabled ? pattern : 'pendulum';
+      _selectedPattern = isEnabled ? patternId : motionPatterns.first.id;
       _isTurnedOn = isEnabled;
     });
 
-    _disableAllMotions();
+    // 排他制御：全パターンをOFF
+    MotionState.disableAll();
 
     if (isEnabled) {
-      _setMotionState(pattern, true);
-      MotionState.selectedPattern.value = pattern;
-      // バックグラウンドが有効なら、オーバーレイ用にパターンを保存
+      MotionState.enabled[patternId]?.value = true;
+      MotionState.showInShell[patternId]?.value = true;
+      MotionState.selectedPattern.value = patternId;
+
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('motion_selected_pattern', pattern);
-      // バックグラウンドが有効な場合のみフォアグラウンドサービスを維持
+      await prefs.setString('motion_selected_pattern', patternId);
+
       final bgEnabled = prefs.getBool('motion_background_enabled') ?? false;
       if (bgEnabled) {
         await MotionBackgroundController.hideOverlayForInAppExperience();
       }
     } else {
-      MotionState.selectedPattern.value = 'pendulum';
+      MotionState.selectedPattern.value = motionPatterns.first.id;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('motion_selected_pattern', 'pendulum');
+      await prefs.setString('motion_selected_pattern', motionPatterns.first.id);
     }
   }
 
@@ -106,95 +58,25 @@ class _MotionPageState extends State<MotionPage> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               sliver: SliverList(
-                delegate: SliverChildListDelegate.fixed([
-                  // --- 1枚目のカード：振り子ボール ---
-                  _SkeletonCard(
-                    title: '振り子ボール',
-                    enabled: _isTurnedOn && _selectedPattern == 'pendulum',
-                    preview: (_isTurnedOn && _selectedPattern == 'pendulum')
-                        ? const _ActivePreviewPlaceholder()
-                        : const PendulumBallMotion(
-                            period: Duration(milliseconds: 5000),
-                            ballDiameter: 20,
-                            isPreview: true, // 2つ目のコードの仕様（他の背景ON時もプレビュー維持）を反映
-                          ),
-                    onEnabledChanged: (v) {
-                      unawaited(_handleToggle('pendulum', v));
-                    },
-                  ),
-                  
-                  const SizedBox(height: 16),
-
-                  // --- 2枚目のカード：呼吸するボール ---
-                  _SkeletonCard(
-                    title: '呼吸するボール',
-                    enabled: _isTurnedOn && _selectedPattern == 'breathing_bottom',
-                    preview: (_isTurnedOn && _selectedPattern == 'breathing_bottom')
-                        ? const _ActivePreviewPlaceholder()
-                        : const BreathingBottomBallMotion(
-                            period: Duration(milliseconds: 4000),
-                            minDiameter: 20,
-                            maxDiameter: 40,
-                          ),
-                    onEnabledChanged: (v) {
-                      unawaited(_handleToggle('breathing_bottom', v));
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // --- 3枚目のカード：動くボール ---
-                  _SkeletonCard(
-                    title: '動くボール',
-                    enabled: _isTurnedOn && _selectedPattern == 'moving_bottom',
-                    preview: (_isTurnedOn && _selectedPattern == 'moving_bottom')
-                        ? const _ActivePreviewPlaceholder()
-                        : const MovingBottomBallMotion(
-                            period: Duration(milliseconds: 3000),
-                            minDiameter: 20,
-                            maxDiameter: 100,
-                          ),
-                    onEnabledChanged: (v) {
-                      unawaited(_handleToggle('moving_bottom', v));
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // --- 4枚目のカード：竜巻モーション ---
-                  _SkeletonCard(
-                    title: '竜巻モーション',
-                    enabled: _isTurnedOn && _selectedPattern == 'tornado',
-                    preview: (_isTurnedOn && _selectedPattern == 'tornado')
-                        ? const _ActivePreviewPlaceholder()
-                        : const TornadoTopViewMotion(
-                            period: Duration(milliseconds: 3000),
-                            minScale: 0.3,
-                            maxScale: 1.2,
-                          ),
-                    onEnabledChanged: (v) {
-                      unawaited(_handleToggle('tornado', v));
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // --- 5枚目のカード：おやすみ呼吸ボール ---
-                  _SkeletonCard(
-                    title: 'おやすみ呼吸ボール',
-                    enabled: _isTurnedOn && _selectedPattern == 'sleepy_breathing',
-                    preview: (_isTurnedOn && _selectedPattern == 'sleepy_breathing')
-                        ? const _ActivePreviewPlaceholder()
-                        : const SleepyBreathingBallsMotion(
-                            period: Duration(milliseconds: 12000),
-                            maxDiameter: 80,
-                          ),
-                    onEnabledChanged: (v) {
-                      unawaited(_handleToggle('sleepy_breathing', v));
-                    },
-                  ),
-                  
-                ]),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    // カード間のスペース
+                    if (index.isOdd) return const SizedBox(height: 16);
+                    final pattern = motionPatterns[index ~/ 2];
+                    final isActive = _isTurnedOn && _selectedPattern == pattern.id;
+                    return _SkeletonCard(
+                      title: pattern.label,
+                      enabled: isActive,
+                      preview: isActive
+                          ? const _ActivePreviewPlaceholder()
+                          : pattern.buildPreview(),
+                      onEnabledChanged: (v) {
+                        unawaited(_handleToggle(pattern.id, v));
+                      },
+                    );
+                  },
+                  childCount: motionPatterns.length * 2 - 1,
+                ),
               ),
             ),
           ],
