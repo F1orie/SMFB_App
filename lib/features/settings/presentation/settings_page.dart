@@ -5,7 +5,6 @@ import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 import 'package:smf_app/features/motion/infrastructure/motion_background_controller.dart';
 
 // SharedPreferences キー
-const _kAlarmVolume = 'alarm_volume';
 const _kSnoozeMinutes = 'snooze_minutes';
 const _kSensorNormFactor = 'sensor_norm_factor';
 const _kMotionBackground = 'motion_background_enabled';
@@ -19,7 +18,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   // ── アラーム設定 ────────────────────────────────────────────
-  double _alarmVolume = 0.8; // 0.0〜1.0
   int _snoozeMinutes = 5; // 5 / 10 / 15
 
   // ── センサー設定 ────────────────────────────────────────────
@@ -44,7 +42,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _alarmVolume = prefs.getDouble(_kAlarmVolume) ?? 0.8;
       _snoozeMinutes = prefs.getInt(_kSnoozeMinutes) ?? 5;
       final normFactor = prefs.getDouble(_kSensorNormFactor) ?? 2.0;
       _sensitivityStep = _normFactorToStep(normFactor);
@@ -79,11 +76,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _saveAlarmVolume(double value) async {
-    setState(() => _alarmVolume = value);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_kAlarmVolume, value);
-  }
 
   Future<void> _saveSnoozeMinutes(int value) async {
     setState(() => _snoozeMinutes = value);
@@ -184,21 +176,11 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             // ── アラーム ────────────────────────────────────────
             _SectionHeader(title: 'アラーム'),
-            _SettingsTile(
-              label: 'アラーム音量',
-              trailing: Text(
-                '${(_alarmVolume * 100).round()}%',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Slider(
-                value: _alarmVolume,
-                min: 0,
-                max: 1,
-                divisions: 20,
-                onChanged: _saveAlarmVolume,
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Text(
+                'アラーム音量は端末の音量ボタンで調整してください',
+                style: TextStyle(fontSize: 13, color: Colors.white54),
               ),
             ),
             _SettingsTile(

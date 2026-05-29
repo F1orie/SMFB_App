@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../application/dummy_sleep_data_service.dart';
 import '../application/sleep_recorder_service.dart';
@@ -124,6 +125,11 @@ class _AlarmPageState extends State<AlarmPage> {
       alarmDt = alarmDt.add(const Duration(days: 1));
     }
     final alarmMs = alarmDt.millisecondsSinceEpoch;
+
+    // 設定からセンサー感度を読み込んで適用
+    final prefs = await SharedPreferences.getInstance();
+    final normFactor = prefs.getDouble('sensor_norm_factor') ?? 2.0;
+    _recorderService.setNormFactor(normFactor);
 
     // フォアグラウンドサービス起動 + センサー開始
     await _recorderService.start(alarmTimeEpochMs: alarmMs);
