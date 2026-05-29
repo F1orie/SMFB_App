@@ -18,16 +18,21 @@ class ListPage extends StatefulWidget {
 }
 
 class _ListPageState extends State<ListPage> {
-  late final List<SleepSession> _sessions;
+  List<SleepSession> _sessions = [];
 
   static const _weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+  static const _kBackground = Color(0xFF071C35);
 
   @override
   void initState() {
     super.initState();
+    _loadSessions();
+  }
+
+  void _loadSessions() {
     final all = List<SleepSession>.from(SleepRepository.instance.allSessions);
     all.sort((a, b) => b.startAtEpochMs.compareTo(a.startAtEpochMs));
-    _sessions = all;
+    setState(() => _sessions = all);
   }
 
   String _dateLabel(DateTime dt) {
@@ -44,9 +49,41 @@ class _ListPageState extends State<ListPage> {
 
   String _durationLabel(SleepSession s) {
     if (s.endAtEpochMs == null) return '--';
-    final mins =
-        (s.endAtEpochMs! - s.startAtEpochMs) ~/ 1000 ~/ 60;
+    final mins = (s.endAtEpochMs! - s.startAtEpochMs) ~/ 1000 ~/ 60;
     return '${mins ~/ 60}時間${mins % 60}分';
+  }
+
+
+  Future<void> _deleteSession(SleepSession session) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('記録を削除しますか？'),
+        content: Text(
+          '${_dateLabel(DateTime.fromMillisecondsSinceEpoch(session.startAtEpochMs))}の睡眠データを削除します。\nこの操作は取り消せません。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final repo = SleepRepository.instance;
+    await repo.removeSession(session.id);
+    await repo.removeEpochsForSession(session.id);
+    await repo.removeNotesForSession(session.id);
+
+    _loadSessions();
   }
 
   void _showActionSheet(SleepSession session, SleepNote? note) {
@@ -81,7 +118,8 @@ class _ListPageState extends State<ListPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.auto_awesome, color: Colors.amber),
+                leading:
+                    const Icon(Icons.auto_awesome, color: Colors.amber),
                 title: const Text('AI分析を見る'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -89,11 +127,22 @@ class _ListPageState extends State<ListPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.info_outline, color: Colors.grey),
+                leading:
+                    const Icon(Icons.info_outline, color: Colors.grey),
                 title: const Text('詳細'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showDetail(session, note);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading:
+                    const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('削除', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteSession(session);
                 },
               ),
             ],
@@ -118,18 +167,23 @@ class _ListPageState extends State<ListPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _detailRow('就寝', _timeLabel(session.startAtEpochMs)),
-            _detailRow('起床', end != null ? _timeLabel(session.endAtEpochMs!) : '--:--'),
+            _detailRow('起床',
+                end != null ? _timeLabel(session.endAtEpochMs!) : '--:--'),
             _detailRow('睡眠時間', _durationLabel(session)),
             if (note != null && note.memo.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text('メモ', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('メモ',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text(note.memo),
             ],
             if (note != null &&
-                (note.hadAlcohol || note.hadCaffeine || note.didExercise)) ...[
+                (note.hadAlcohol ||
+                    note.hadCaffeine ||
+                    note.didExercise)) ...[
               const SizedBox(height: 12),
-              const Text('記録', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('記録',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Wrap(
                 spacing: 8,
@@ -159,7 +213,8 @@ class _ListPageState extends State<ListPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(value,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -167,7 +222,8 @@ class _ListPageState extends State<ListPage> {
 
   Widget _chip(String label, Color color) {
     return Chip(
-      label: Text(label, style: const TextStyle(fontSize: 12, color: Colors.white)),
+      label: Text(label,
+          style: const TextStyle(fontSize: 12, color: Colors.white)),
       backgroundColor: color,
       padding: EdgeInsets.zero,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -177,7 +233,13 @@ class _ListPageState extends State<ListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('睡眠記録')),
+      backgroundColor: _kBackground,
+      appBar: AppBar(
+        title: const Text('睡眠記録'),
+        backgroundColor: _kBackground,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: _sessions.isEmpty ? _buildEmpty() : _buildList(),
     );
   }
@@ -187,16 +249,17 @@ class _ListPageState extends State<ListPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.bedtime_outlined, size: 64, color: Colors.grey.shade400),
+          Icon(Icons.bedtime_outlined,
+              size: 64, color: Colors.white.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'まだ記録がありません',
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 16, color: Colors.white54),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'アラーム画面でSTARTして睡眠を記録してください',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            style: TextStyle(fontSize: 12, color: Colors.white38),
             textAlign: TextAlign.center,
           ),
         ],
@@ -204,31 +267,126 @@ class _ListPageState extends State<ListPage> {
     );
   }
 
-  Widget _buildList() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      itemCount: _sessions.length,
-      itemBuilder: (context, index) {
-        final session = _sessions[index];
-        final notes = SleepRepository.instance.notesForSession(session.id);
-        final note = notes.isNotEmpty ? notes.last : null;
-        return _SessionCard(
-          session: session,
-          note: note,
-          dateLabel: _dateLabel(
-            DateTime.fromMillisecondsSinceEpoch(session.startAtEpochMs),
+  /// 月ごとのヘッダー付きリストアイテムを生成する
+  List<Widget> _buildItems() {
+    final items = <Widget>[];
+    String? lastMonth;
+
+    for (final session in _sessions) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(session.startAtEpochMs);
+      final monthKey = '${dt.year}年${dt.month}月';
+
+      if (monthKey != lastMonth) {
+        items.add(_MonthHeader(label: monthKey));
+        lastMonth = monthKey;
+      }
+
+      final notes = SleepRepository.instance.notesForSession(session.id);
+      final note = notes.isNotEmpty ? notes.last : null;
+
+      items.add(
+        Dismissible(
+          key: ValueKey(session.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 24),
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.red.shade700.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.delete_outline, color: Colors.white, size: 28),
+                SizedBox(height: 4),
+                Text('削除',
+                    style: TextStyle(color: Colors.white, fontSize: 12)),
+              ],
+            ),
           ),
-          startLabel: _timeLabel(session.startAtEpochMs),
-          endLabel: session.endAtEpochMs != null
-              ? _timeLabel(session.endAtEpochMs!)
-              : '--:--',
-          durationLabel: _durationLabel(session),
-          onTap: () => _showActionSheet(session, note),
-        );
-      },
+          confirmDismiss: (_) async {
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('記録を削除しますか？'),
+                content: Text(
+                  '${_dateLabel(DateTime.fromMillisecondsSinceEpoch(session.startAtEpochMs))}のデータを削除します。\nこの操作は取り消せません。',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('キャンセル'),
+                  ),
+                  FilledButton(
+                    style:
+                        FilledButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: const Text('削除'),
+                  ),
+                ],
+              ),
+            );
+            return confirmed == true;
+          },
+          onDismissed: (_) async {
+            final repo = SleepRepository.instance;
+            await repo.removeSession(session.id);
+            await repo.removeEpochsForSession(session.id);
+            await repo.removeNotesForSession(session.id);
+            _loadSessions();
+          },
+          child: _SessionCard(
+            session: session,
+            note: note,
+            dateLabel: _dateLabel(dt),
+            startLabel: _timeLabel(session.startAtEpochMs),
+            endLabel: session.endAtEpochMs != null
+                ? _timeLabel(session.endAtEpochMs!)
+                : '--:--',
+            durationLabel: _durationLabel(session),
+            onTap: () => _showActionSheet(session, note),
+          ),
+        ),
+      );
+    }
+
+    return items;
+  }
+
+  Widget _buildList() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      children: _buildItems(),
     );
   }
 }
+
+// ── _MonthHeader ────────────────────────────────────────────────
+
+class _MonthHeader extends StatelessWidget {
+  const _MonthHeader({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.5),
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+// ── _SessionCard ────────────────────────────────────────────────
 
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
@@ -253,48 +411,60 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 日付 + バッジ
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     dateLabel,
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.bold),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                   _StatusBadge(isRecording: _isRecording),
                 ],
               ),
               const SizedBox(height: 12),
-              // 3カラム統計
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _StatItem(icon: Icons.bedtime, label: '就寝', value: startLabel),
-                  _StatItem(icon: Icons.wb_sunny, label: '起床', value: endLabel),
-                  _StatItem(icon: Icons.timer, label: '時間', value: durationLabel),
+                  _StatItem(
+                      icon: Icons.bedtime,
+                      label: '就寝',
+                      value: startLabel),
+                  _StatItem(
+                      icon: Icons.wb_sunny,
+                      label: '起床',
+                      value: endLabel),
+                  _StatItem(
+                      icon: Icons.timer,
+                      label: '時間',
+                      value: durationLabel),
                 ],
               ),
-              // メモ
               if (note != null && note!.memo.isNotEmpty) ...[
-                const Divider(height: 20),
+                const Divider(height: 20, color: Colors.white12),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.note_alt_outlined,
-                        size: 16, color: Colors.blueGrey),
+                    Icon(Icons.note_alt_outlined,
+                        size: 16,
+                        color: Colors.white.withValues(alpha: 0.4)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -302,7 +472,7 @@ class _SessionCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 13, color: Colors.black87),
+                            fontSize: 13, color: Colors.white60),
                       ),
                     ),
                   ],
@@ -316,6 +486,8 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
+// ── _StatusBadge ────────────────────────────────────────────────
+
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.isRecording});
   final bool isRecording;
@@ -325,17 +497,27 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isRecording ? Colors.orange : Colors.green,
+        color: isRecording
+            ? Colors.orange.withValues(alpha: 0.2)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isRecording ? Colors.orange : Colors.white24,
+        ),
       ),
       child: Text(
         isRecording ? '記録中' : '完了',
-        style: const TextStyle(
-            fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: isRecording ? Colors.orange : Colors.white54,
+        ),
       ),
     );
   }
 }
+
+// ── _StatItem ───────────────────────────────────────────────────
 
 class _StatItem extends StatelessWidget {
   const _StatItem({
@@ -352,14 +534,18 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, size: 20, color: Colors.blueGrey),
+        Icon(icon,
+            size: 20,
+            color: const Color(0xFF4FC3F7).withValues(alpha: 0.8)),
         const SizedBox(height: 4),
         Text(label,
-            style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            style: const TextStyle(fontSize: 11, color: Colors.white54)),
         const SizedBox(height: 2),
         Text(value,
             style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold)),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
       ],
     );
   }

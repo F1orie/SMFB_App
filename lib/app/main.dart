@@ -14,6 +14,7 @@ import 'package:smf_app/features/motion/infrastructure/motion_background_control
 import 'package:smf_app/features/motion/presentation/motion_page.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
 import 'package:smf_app/features/list/presentation/list_page.dart';
+import 'package:smf_app/features/settings/presentation/settings_page.dart';
 
 class SmfApp extends StatelessWidget {
   const SmfApp({super.key});
@@ -147,7 +148,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                         onNavigateToGraph: _navigateToGraphDate,
                         onNavigateToFb: _navigateToFbSession,
                       ),
-                      _PlaceholderTab(label: '設定'),
+                      const SettingsPage(),
                       FbDashboardPage(
                         key: ValueKey(_fbRebuildKey),
                         targetSession: _fbTargetSession,
@@ -173,25 +174,6 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           },
         );
       },
-    );
-  }
-}
-
-class _PlaceholderTab extends StatelessWidget {
-  const _PlaceholderTab({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Theme.of(context).colorScheme.surface,
-      child: Center(
-        child: Text(
-          '$label（未実装）',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-      ),
     );
   }
 }
