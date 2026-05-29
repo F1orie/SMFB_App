@@ -1,34 +1,33 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
-/// 振り子のように左右へゆったり往復する球体モーション。
+/// 画面の下部を左右に移動し、中央で大きく、両端で小さくなるボールモーション。
 ///
-/// - 周期: [period]（往復=左→右→左）
-/// - 与えられた領域内で円弧（振り子）運動
-class PendulumBallMotion extends StatefulWidget {
-  const PendulumBallMotion({
+/// - 周期: [period]（左端→右端の移動にかかる時間）
+/// - サイズ: 中央で[maxDiameter]、左右の端で[minDiameter]
+class MovingBottomBallMotion extends StatefulWidget {
+  const MovingBottomBallMotion({
     super.key,
-    this.period = const Duration(milliseconds: 5000),
-    this.ballDiameter = 26,
+    this.period = const Duration(milliseconds: 3000), // 少し速くすると往復感がわかりやすいです
+    this.minDiameter = 20,
+    this.maxDiameter = 100,
+    this.bottomPadding = 16,
     this.ballColor = const Color(0xFFBFE6FF),
     this.glowColor = const Color(0xFF6EC6FF),
-    this.maxAngleRad = 0.95,
-    this.isPreview = false,
   });
 
   final Duration period;
-  final double ballDiameter;
+  final double minDiameter;
+  final double maxDiameter;
+  final double bottomPadding;
   final Color ballColor;
   final Color glowColor;
-  final double maxAngleRad;
-  final bool isPreview;
 
   @override
-  State<PendulumBallMotion> createState() => _PendulumBallMotionState();
+  State<MovingBottomBallMotion> createState() => _MovingBottomBallMotionState();
 }
 
-class _PendulumBallMotionState extends State<PendulumBallMotion>
+class _MovingBottomBallMotionState extends State<MovingBottomBallMotion>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
@@ -36,7 +35,7 @@ class _PendulumBallMotionState extends State<PendulumBallMotion>
   )..repeat(reverse: true);
 
   @override
-  void didUpdateWidget(covariant PendulumBallMotion oldWidget) {
+  void didUpdateWidget(covariant MovingBottomBallMotion oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.period != widget.period) {
       _ctrl.duration = widget.period;
@@ -52,44 +51,34 @@ class _PendulumBallMotionState extends State<PendulumBallMotion>
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine);
+    // 左右の移動を滑らかにするためのカーブ
+    final curved = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
         final h = constraints.maxHeight.isFinite ? constraints.maxHeight : 0.0;
-        final diameter = widget.ballDiameter.clamp(6.0, 200.0).toDouble();
 
         return AnimatedBuilder(
           animation: curved,
           builder: (context, _) {
-            final t = curved.value; // 0..1（reverseで往復）
-            final maxAngle = widget.maxAngleRad.clamp(0.2, 1.25);
-            final theta = (t * 2 - 1) * maxAngle;
+            final t = curved.value; // 0.0(左端) 〜 1.0(右端) で往復
 
-            final maxX = math.max(0.0, (w - diameter) * 0.45);
-            final maxY = math.max(0.0, (h - diameter) * 0.55);
-            final lx = (maxX > 0)
-                ? maxX / math.max(0.001, math.sin(maxAngle))
-                : 0.0;
-            final ly = (maxY > 0)
-                ? maxY / math.max(0.001, (1 - math.cos(maxAngle)))
-                : 0.0;
-            final l = math.max(0.0, math.min(lx, ly));
+            // サイズの計算: サイン波を利用
+            // t=0.0(左端) -> sin(0) = 0
+            // t=0.5(中央) -> sin(π/2) = 1
+            // t=1.0(右端) -> sin(π) = 0
+            final sizeScale = math.sin(t * math.pi);
+            final currentDiameter = widget.minDiameter +
+                (widget.maxDiameter - widget.minDiameter) * sizeScale;
 
-            final pivotX = w / 2;
-            // 振り子弧の縦方向レンジを画面中央付近に置く（支点は弧の上端側）。
-            final maxDrop = l * (1 - math.cos(maxAngle));
-            var pivotY = h / 2 - maxDrop / 2;
-            final minPivotY = diameter * 0.5;
-            final maxPivotY = math.max(minPivotY, h - maxDrop - diameter * 0.5);
-            pivotY = pivotY.clamp(minPivotY, maxPivotY);
-
-            final cx = pivotX + l * math.sin(theta);
-            final cy = pivotY + l * (1 - math.cos(theta));
-
-            final x = cx - (diameter / 2);
-            final y = cy - (diameter / 2);
+            // X軸：tの値に応じて左端から右端まで移動
+            // ボールが画面外にはみ出ないように最大X座標を計算
+            final maxX = math.max(0.0, w - currentDiameter);
+            final x = maxX * t;
+            
+            // Y軸：画面の下部に配置（bottomPadding分だけ上にずらす）
+            final y = math.max(0.0, h - currentDiameter - widget.bottomPadding);
 
             return Stack(
               fit: StackFit.expand,
@@ -98,7 +87,7 @@ class _PendulumBallMotionState extends State<PendulumBallMotion>
                   left: x.isFinite ? x : 0,
                   top: y.isFinite ? y : 0,
                   child: _Ball(
-                    diameter: diameter,
+                    diameter: currentDiameter,
                     color: widget.ballColor,
                     glowColor: widget.glowColor,
                   ),
