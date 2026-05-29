@@ -1,6 +1,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+// ==========================================
+// 動くボール
+// ==========================================
+
 /// 画面の下部を左右に移動し、中央で大きく、両端で小さくなるボールモーション。
 ///
 /// - 周期: [period]（左端→右端の移動にかかる時間）
@@ -8,7 +12,7 @@ import 'package:flutter/material.dart';
 class MovingBottomBallMotion extends StatefulWidget {
   const MovingBottomBallMotion({
     super.key,
-    this.period = const Duration(milliseconds: 3000), // 少し速くすると往復感がわかりやすいです
+    this.period = const Duration(milliseconds: 11000), // 少し速くすると往復感がわかりやすいです
     this.minDiameter = 20,
     this.maxDiameter = 100,
     this.bottomPadding = 16,

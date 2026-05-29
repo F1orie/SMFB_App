@@ -7,6 +7,10 @@ import 'motion_patterns/breathing_bottom_ball_motion.dart';
 import 'motion_patterns/moving_bottom_ball_motion.dart';
 import 'motion_patterns/tornado_motion.dart';
 import 'motion_patterns/sleepy_breathing_balls_motion.dart';
+import 'motion_patterns/wave_motion.dart';
+import 'motion_patterns/bouncing_ball_motion.dart';
+// ★ いっぱいおやすみ呼吸ボールをインポート
+import 'motion_patterns/breathing_pendulum_motion.dart'; 
 
 class MotionPage extends StatefulWidget {
   const MotionPage({super.key});
@@ -45,6 +49,19 @@ class _MotionPageState extends State<MotionPage> {
         MotionState.sleepyBreathingEnabled.value = isEnabled;
         MotionState.sleepyBreathingShowInShell.value = isEnabled;
         break;
+      case 'wave':
+        MotionState.waveEnabled.value = isEnabled;
+        MotionState.waveShowInShell.value = isEnabled;
+        break;
+      case 'bouncing':
+        MotionState.bouncingEnabled.value = isEnabled;
+        MotionState.bouncingShowInShell.value = isEnabled;
+        break;
+      // ★ 新しいモーションのフラグ切り替えを追加
+      case 'breathing_pendulum':
+        MotionState.breathingPendulumEnabled.value = isEnabled;
+        MotionState.breathingPendulumShowInShell.value = isEnabled;
+        break;
     }
   }
 
@@ -64,6 +81,16 @@ class _MotionPageState extends State<MotionPage> {
     
     MotionState.sleepyBreathingEnabled.value = false;
     MotionState.sleepyBreathingShowInShell.value = false;
+
+    MotionState.waveEnabled.value = false;
+    MotionState.waveShowInShell.value = false;
+
+    MotionState.bouncingEnabled.value = false;
+    MotionState.bouncingShowInShell.value = false;
+
+    // ★ 新しいモーションのリセットを追加
+    MotionState.breathingPendulumEnabled.value = false;
+    MotionState.breathingPendulumShowInShell.value = false;
   }
 
   // 引数に pattern を追加し、動的に切り替えられるように変更
@@ -105,7 +132,7 @@ class _MotionPageState extends State<MotionPage> {
     return ColoredBox(
       color: MotionPage.backgroundColor,
       child: SafeArea(
-        bottom: false,
+        bottom: true,
         child: CustomScrollView(
           slivers: [
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -122,7 +149,7 @@ class _MotionPageState extends State<MotionPage> {
                         : const PendulumBallMotion(
                             period: Duration(milliseconds: 5000),
                             ballDiameter: 20,
-                            isPreview: true, // 2つ目のコードの仕様（他の背景ON時もプレビュー維持）を反映
+                            isPreview: true,
                           ),
                     onEnabledChanged: (v) {
                       unawaited(_handleToggle('pendulum', v));
@@ -200,6 +227,58 @@ class _MotionPageState extends State<MotionPage> {
                     },
                   ),
                   
+                  const SizedBox(height: 16),
+
+                  // --- 6枚目のカード：波モーション ---
+                  _SkeletonCard(
+                    title: '波モーション',
+                    enabled: _isTurnedOn && _selectedPattern == 'wave',
+                    preview: (_isTurnedOn && _selectedPattern == 'wave')
+                        ? const _ActivePreviewPlaceholder()
+                        : const WaveMotion(
+                            period: Duration(milliseconds: 8000),
+                            isPreview: true,
+                          ),
+                    onEnabledChanged: (v) {
+                      unawaited(_handleToggle('wave', v));
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // --- 7枚目のカード：バウンドボール ---
+                  _SkeletonCard(
+                    title: 'バウンドボール',
+                    enabled: _isTurnedOn && _selectedPattern == 'bouncing',
+                    preview: (_isTurnedOn && _selectedPattern == 'bouncing')
+                        ? const _ActivePreviewPlaceholder()
+                        : const BouncingBallMotion(
+                            period: Duration(milliseconds: 5000),
+                            ballDiameter: 20,
+                          ),
+                    onEnabledChanged: (v) {
+                      unawaited(_handleToggle('bouncing', v));
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // --- 8枚目のカード：いっぱいおやすみ呼吸ボール（★ 今回追加） ---
+                  _SkeletonCard(
+                    title: 'いっぱい呼吸ボール',
+                    enabled: _isTurnedOn && _selectedPattern == 'breathing_pendulum',
+                    preview: (_isTurnedOn && _selectedPattern == 'breathing_pendulum')
+                        ? const _ActivePreviewPlaceholder()
+                        : const BreathingPendulumMotion(
+                            period: Duration(milliseconds: 5000),
+                            ballDiameter: 24.0, // さきほど大きくしたサイズ
+                          ),
+                    onEnabledChanged: (v) {
+                      unawaited(_handleToggle('breathing_pendulum', v));
+                    },
+                  ),
+
+                  const SizedBox(height: 40),
                 ]),
               ),
             ),
@@ -238,7 +317,6 @@ class _ActivePreviewPlaceholder extends StatelessWidget {
   }
 }
 
-// 2つ目のコードの改良版 SkeletonCard (高さ220での BOTTOM OVERFLOWED 対策等が含まれています)
 class _SkeletonCard extends StatelessWidget {
   const _SkeletonCard({
     required this.title,

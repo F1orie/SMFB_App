@@ -1,6 +1,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+// ==========================================
+// おやすみ呼吸モーション
+// ==========================================
+
 /// ボールの配置場所と、アニメーションが始まるタイミングのズレ（phase）を定義するクラス
 class BallData {
   final Alignment alignment;

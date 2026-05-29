@@ -30,4 +30,16 @@ class MotionState {
   // --- おやすみ呼吸ボール ---
   static final ValueNotifier<bool> sleepyBreathingEnabled = ValueNotifier<bool>(false);
   static final ValueNotifier<bool> sleepyBreathingShowInShell = ValueNotifier<bool>(false);
+
+  // --- 波モーション (wave) ---
+  static final ValueNotifier<bool> waveEnabled = ValueNotifier(false);
+  static final ValueNotifier<bool> waveShowInShell = ValueNotifier(false);
+
+  // --- バウンドボール ---
+  static final bouncingEnabled = ValueNotifier<bool>(false);
+  static final bouncingShowInShell = ValueNotifier<bool>(false);
+
+    // --- いっぱいおやすみ呼吸ボール ---
+  static final breathingPendulumEnabled = ValueNotifier<bool>(false);
+  static final breathingPendulumShowInShell = ValueNotifier<bool>(false);
 }
