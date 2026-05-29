@@ -102,11 +102,14 @@ class MotionBackgroundController {
     }
   }
 
-  /// アプリが背後に回ったとき、他アプリ上に振り子を出す（権限があれば）。
+  /// アプリが背後に回ったとき、選択中のパターンをオーバーレイで表示する。
+  /// パターン変更を反映するため既存のオーバーレイは閉じてから再生成する。
   static Future<void> showOverlayWhenAppBackgrounded() async {
     if (!_shouldUseOverlay) return;
     _ensureInitialized();
-    if (await FlutterOverlayWindow.isActive()) return;
+    if (await FlutterOverlayWindow.isActive()) {
+      await FlutterOverlayWindow.closeOverlay();
+    }
 
     var granted = await FlutterOverlayWindow.isPermissionGranted();
     if (!granted) {
