@@ -7,6 +7,10 @@
 //
 class AnalysisConfig {
   static const double alertThreshold = 0.7;
+  static const String ragBackendBaseUrl = String.fromEnvironment(
+    'RAG_BACKEND_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
 
   static const String geminiApiKey = ''; // ここに自分の API キーを貼り付ける
 }
