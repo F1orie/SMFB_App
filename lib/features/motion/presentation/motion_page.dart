@@ -12,7 +12,7 @@ import 'motion_patterns/sleepy_breathing_balls_motion.dart';
 class MotionPage extends StatefulWidget {
   const MotionPage({super.key});
 
-  static const backgroundColor = Color(0xFFEFF2F6);
+  static const backgroundColor = Color(0xFF071C35);
 
   @override
   State<MotionPage> createState() => _MotionPageState();
@@ -250,18 +250,11 @@ class _SkeletonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 220, 
+      height: 220,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Stack(
         children: [
@@ -276,7 +269,7 @@ class _SkeletonCard extends StatelessWidget {
                       child: Text(
                         title,
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ?.copyWith(fontWeight: FontWeight.w800, color: Colors.white),
                       ),
                     ),
                     Container(
@@ -285,12 +278,12 @@ class _SkeletonCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: (enabled ? Colors.green.shade600 : Colors.grey.shade500)
-                            .withValues(alpha: 0.14),
+                        color: (enabled ? Colors.greenAccent : Colors.white)
+                            .withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: (enabled ? Colors.green.shade700 : Colors.grey.shade600)
-                              .withValues(alpha: 0.22),
+                          color: (enabled ? Colors.greenAccent : Colors.white)
+                              .withValues(alpha: 0.3),
                         ),
                       ),
                       child: Text(
@@ -298,7 +291,7 @@ class _SkeletonCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelLarge
                             ?.copyWith(
                               fontWeight: FontWeight.w900,
-                              color: enabled ? Colors.green.shade700 : Colors.grey.shade700,
+                              color: enabled ? Colors.greenAccent : Colors.white60,
                             ),
                       ),
                     ),
@@ -310,7 +303,7 @@ class _SkeletonCard extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color: Colors.white.withValues(alpha: 0.04),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -355,9 +348,9 @@ class _SkeletonCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.92),
+                color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -395,7 +388,7 @@ class _SkeletonBar extends StatelessWidget {
       child: Container(
         height: 14,
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.08),
+          color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(999),
         ),
       ),
@@ -410,7 +403,7 @@ class _SkeletonDot extends StatelessWidget {
       width: 10,
       height: 10,
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.10),
+        color: Colors.white.withValues(alpha: 0.15),
         shape: BoxShape.circle,
       ),
     );

@@ -142,115 +142,153 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  static const _kBg = Color(0xFF071C35);
+  static const _kAccent = Color(0xFF4FC3F7);
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('設定')),
-      body: ListView(
-        children: [
-          // ── アラーム ──────────────────────────────────────────
-          _SectionHeader(title: 'アラーム'),
-          _SettingsTile(
-            label: 'アラーム音量',
-            trailing: Text(
-              '${(_alarmVolume * 100).round()}%',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: _kBg,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0A1628),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        listTileTheme: const ListTileThemeData(
+          textColor: Colors.white,
+          iconColor: Colors.white70,
+        ),
+        switchTheme: SwitchThemeData(
+          thumbColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? _kAccent : Colors.white54,
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Slider(
-              value: _alarmVolume,
-              min: 0,
-              max: 1,
-              divisions: 20,
-              onChanged: _saveAlarmVolume,
-            ),
+          trackColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.selected)
+                ? _kAccent.withValues(alpha: 0.4)
+                : Colors.white24,
           ),
-          _SettingsTile(
-            label: 'スヌーズ時間',
-            trailing: DropdownButton<int>(
-              value: _snoozeMinutes,
-              underline: const SizedBox.shrink(),
-              items: const [
-                DropdownMenuItem(value: 5, child: Text('5分')),
-                DropdownMenuItem(value: 10, child: Text('10分')),
-                DropdownMenuItem(value: 15, child: Text('15分')),
-              ],
-              onChanged: (v) {
-                if (v != null) _saveSnoozeMinutes(v);
-              },
-            ),
-          ),
-
-          // ── センサー ──────────────────────────────────────────
-          _SectionHeader(title: 'センサー'),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text('センサー感度'),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-            child: Row(
-              children: [
-                const Text('低め', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                Expanded(
-                  child: Slider(
-                    value: _sensitivityStep.toDouble(),
-                    min: 0,
-                    max: 2,
-                    divisions: 2,
-                    onChanged: (v) => _saveSensitivity(v.round()),
-                  ),
-                ),
-                const Text('高め', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Center(
-              child: Text(
-                _sensitivityStep == 0
-                    ? '低め（鈍感）'
-                    : _sensitivityStep == 2
-                        ? '高め（敏感）'
-                        : '標準',
-                style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+        ),
+        sliderTheme: SliderThemeData(
+          activeTrackColor: _kAccent,
+          inactiveTrackColor: Colors.white24,
+          thumbColor: _kAccent,
+          overlayColor: _kAccent.withValues(alpha: 0.2),
+          valueIndicatorColor: _kAccent,
+        ),
+        dividerColor: Colors.white12,
+      ),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('設定')),
+        body: ListView(
+          children: [
+            // ── アラーム ────────────────────────────────────────
+            _SectionHeader(title: 'アラーム'),
+            _SettingsTile(
+              label: 'アラーム音量',
+              trailing: Text(
+                '${(_alarmVolume * 100).round()}%',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
-          ),
-
-          // ── モーション ────────────────────────────────────────
-          _SectionHeader(title: 'モーション'),
-          SwitchListTile(
-            title: const Text('バックグラウンド表示'),
-            subtitle: const Text('他のアプリを使用中もモーションを表示する'),
-            value: _motionBackground,
-            onChanged: _saveMotionBackground,
-          ),
-
-          // ── 一般 ──────────────────────────────────────────────
-          _SectionHeader(title: '一般'),
-          ListTile(
-            title: const Text('すべての記録を削除'),
-            trailing: FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: _confirmDeleteAll,
-              child: const Text('削除'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Slider(
+                value: _alarmVolume,
+                min: 0,
+                max: 1,
+                divisions: 20,
+                onChanged: _saveAlarmVolume,
+              ),
             ),
-          ),
-          _SettingsTile(
-            label: 'バージョン',
-            trailing: Text(
-              _version.isEmpty
-                  ? '---'
-                  : '$_version ($_buildNumber)',
-              style: const TextStyle(color: Colors.grey),
+            _SettingsTile(
+              label: 'スヌーズ時間',
+              trailing: DropdownButton<int>(
+                value: _snoozeMinutes,
+                dropdownColor: const Color(0xFF0A1628),
+                style: const TextStyle(color: Colors.white),
+                underline: const SizedBox.shrink(),
+                items: const [
+                  DropdownMenuItem(value: 5, child: Text('5分')),
+                  DropdownMenuItem(value: 10, child: Text('10分')),
+                  DropdownMenuItem(value: 15, child: Text('15分')),
+                ],
+                onChanged: (v) {
+                  if (v != null) _saveSnoozeMinutes(v);
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 32),
-        ],
+
+            // ── センサー ──────────────────────────────────────────
+            _SectionHeader(title: 'センサー'),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text('センサー感度', style: TextStyle(color: Colors.white70)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Row(
+                children: [
+                  const Text('低め', style: TextStyle(fontSize: 12, color: Colors.white54)),
+                  Expanded(
+                    child: Slider(
+                      value: _sensitivityStep.toDouble(),
+                      min: 0,
+                      max: 2,
+                      divisions: 2,
+                      onChanged: (v) => _saveSensitivity(v.round()),
+                    ),
+                  ),
+                  const Text('高め', style: TextStyle(fontSize: 12, color: Colors.white54)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Center(
+                child: Text(
+                  _sensitivityStep == 0
+                      ? '低め（鈍感）'
+                      : _sensitivityStep == 2
+                          ? '高め（敏感）'
+                          : '標準',
+                  style: TextStyle(fontSize: 12, color: _kAccent),
+                ),
+              ),
+            ),
+
+            // ── モーション ──────────────────────────────────────
+            _SectionHeader(title: 'モーション'),
+            SwitchListTile(
+              title: const Text('バックグラウンド表示'),
+              subtitle: const Text(
+                '他のアプリを使用中もモーションを表示する',
+                style: TextStyle(color: Colors.white54),
+              ),
+              value: _motionBackground,
+              onChanged: _saveMotionBackground,
+            ),
+
+            // ── 一般 ────────────────────────────────────────────
+            _SectionHeader(title: '一般'),
+            ListTile(
+              title: const Text('すべての記録を削除'),
+              trailing: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: _confirmDeleteAll,
+                child: const Text('削除'),
+              ),
+            ),
+            _SettingsTile(
+              label: 'バージョン',
+              trailing: Text(
+                _version.isEmpty ? '---' : '$_version ($_buildNumber)',
+                style: const TextStyle(color: Colors.white54),
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }
@@ -268,10 +306,10 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
       child: Text(
         title,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary,
+          color: Color(0xFF4FC3F7),
         ),
       ),
     );

@@ -212,29 +212,38 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     return '${diff.inHours}時間${diff.inMinutes % 60}分';
   }
 
+  static const _kBg = Color(0xFF071C35);
+  static const _kCard = Color(0x0AFFFFFF);
+  static const _kBorder = Color(0x14FFFFFF);
+  static const _kAccent = Color(0xFF4FC3F7);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('分析,フィードバック')),
+      backgroundColor: _kBg,
+      appBar: AppBar(
+        title: const Text('分析・フィードバック'),
+        backgroundColor: const Color(0xFF0A1628),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: _session == null ? _buildNoData() : _buildContent(_session!),
     );
   }
 
   Widget _buildNoData() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.bedtime_outlined, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          const Text(
-            'データがありません',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
-          ),
-          const SizedBox(height: 8),
-          const Text(
+          Icon(Icons.bedtime_outlined, size: 64, color: Colors.white30),
+          SizedBox(height: 16),
+          Text('データがありません',
+              style: TextStyle(fontSize: 18, color: Colors.white60)),
+          SizedBox(height: 8),
+          Text(
             'アラーム画面でSTARTして睡眠を記録してください',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+            style: TextStyle(fontSize: 13, color: Colors.white38),
             textAlign: TextAlign.center,
           ),
         ],
@@ -255,51 +264,48 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         children: [
           Text(
             '${_formatDate(startDt)}の睡眠分析',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const SizedBox(height: 16),
 
           // 睡眠の基本情報カード
-          Card(
-            elevation: 4,
+          Container(
+            decoration: BoxDecoration(
+              color: _kCard,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _kBorder),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(
-                      Icons.calendar_today,
-                      color: Colors.blue,
-                    ),
+                    leading: const Icon(Icons.calendar_today, color: _kAccent),
                     title: Text(
                       '${_formatDate(startDt)}（${endDt != null ? _formatDate(endDt) : ""}）',
+                      style: const TextStyle(color: Colors.white),
                     ),
-                    subtitle: Text('睡眠時間: ${_durationLabel(session)}'),
+                    subtitle: Text('睡眠時間: ${_durationLabel(session)}',
+                        style: const TextStyle(color: Colors.white60)),
                   ),
-                  const Divider(),
+                  Divider(color: Colors.white.withValues(alpha: 0.1)),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildStatItem('就寝', _formatTime(startDt)),
-                      _buildStatItem(
-                        '起床',
-                        endDt != null ? _formatTime(endDt) : '--:--',
-                      ),
+                      _buildStatItem('起床', endDt != null ? _formatTime(endDt) : '--:--'),
                       _buildStatItem('時間', _durationLabel(session)),
                     ],
                   ),
                   if (_memo != null && _memo!.isNotEmpty) ...[
-                    const Divider(),
+                    Divider(color: Colors.white.withValues(alpha: 0.1)),
                     ListTile(
-                      leading: const Icon(
-                        Icons.note_alt_outlined,
-                        color: Colors.blueGrey,
-                      ),
-                      title: const Text(
-                        'メモ',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(_memo!),
+                      leading: const Icon(Icons.note_alt_outlined, color: Colors.white54),
+                      title: const Text('メモ',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                      subtitle: Text(_memo!,
+                          style: const TextStyle(color: Colors.white70)),
                     ),
                   ],
                 ],
@@ -309,62 +315,42 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
 
           const SizedBox(height: 24),
 
-          // 通常のAIアドバイスセクション
           const Text('アドバイス',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 8),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: _kAccent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+              border: Border.all(color: _kAccent.withValues(alpha: 0.25)),
             ),
             child: _buildAiAdviceContent(session),
           ),
 
           const SizedBox(height: 24),
 
-          // ★ 特化型AIアドバイスボタンセクション
-          const Text(
-            '睡眠の質を高めるおすすめ項目',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          const Text('睡眠の質を高めるおすすめ項目',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildSpecialButton(
-                session,
-                AdviceType.bedding,
-                '🛏️ 寝具',
-                Colors.indigo,
-              ),
-              _buildSpecialButton(
-                session,
-                AdviceType.food,
-                '🥦 食べ物',
-                Colors.teal,
-              ),
-              _buildSpecialButton(
-                session,
-                AdviceType.routine,
-                '🧘 ルーティン',
-                Colors.deepOrange,
-              ),
+              _buildSpecialButton(session, AdviceType.bedding, '🛏️ 寝具', Colors.indigoAccent),
+              _buildSpecialButton(session, AdviceType.food, '🥦 食べ物', Colors.tealAccent),
+              _buildSpecialButton(session, AdviceType.routine, '🧘 ルーティン', Colors.deepOrangeAccent),
             ],
           ),
 
-          // ★ 新設：特化型アドバイスの結果表示枠
           if (_selectedAdviceType != null) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.05),
+                color: _kCard,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                border: Border.all(color: _kBorder),
               ),
               child: _buildSpecialAdviceContent(session),
             ),
@@ -372,7 +358,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
 
           const SizedBox(height: 40),
 
-          // チャットボタン
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -381,21 +366,21 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+                  backgroundColor: const Color(0xFF0A1628),
                   shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   builder: (context) =>
                       FbChatDialog(session: session, memo: _memo ?? ''),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+                backgroundColor: _kAccent,
+                foregroundColor: const Color(0xFF071C35),
               ),
               icon: const Icon(Icons.chat),
-              label: const Text('この結果についてAIに質問する'),
+              label: const Text('この結果についてAIに質問する',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -421,10 +406,10 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         children: [
           const Row(
             children: [
-              Icon(Icons.error_outline, color: Colors.red, size: 20),
+              Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
               SizedBox(width: 8),
               Text('分析に失敗しました。再試行してください。',
-                  style: TextStyle(color: Colors.red)),
+                  style: TextStyle(color: Colors.redAccent)),
             ],
           ),
           if (_errorDetail != null) ...[
@@ -432,13 +417,13 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.red.shade50,
+                color: Colors.red.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
               ),
               child: Text(
                 _errorDetail!,
-                style: TextStyle(fontSize: 11, color: Colors.red.shade800),
+                style: const TextStyle(fontSize: 11, color: Colors.white70),
               ),
             ),
           ],
@@ -460,11 +445,13 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
             children: [
               Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
               SizedBox(width: 8),
-              Text('AI分析結果', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('AI分析結果',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             ],
           ),
           const SizedBox(height: 8),
-          Text(_aiAdvice!, style: const TextStyle(fontSize: 15, height: 1.5)),
+          Text(_aiAdvice!,
+              style: const TextStyle(fontSize: 15, height: 1.6, color: Colors.white70)),
         ],
       );
     }
@@ -485,9 +472,11 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         padding: const EdgeInsets.symmetric(horizontal: 4.0),
         child: OutlinedButton(
           style: OutlinedButton.styleFrom(
-            backgroundColor: isSelected ? themeColor : Colors.white,
-            foregroundColor: isSelected ? Colors.white : themeColor,
-            side: BorderSide(color: themeColor),
+            backgroundColor: isSelected
+                ? themeColor.withValues(alpha: 0.85)
+                : themeColor.withValues(alpha: 0.12),
+            foregroundColor: Colors.white,
+            side: BorderSide(color: themeColor.withValues(alpha: 0.7)),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -543,18 +532,15 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
             const SizedBox(width: 8),
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
             ),
           ],
         ),
         const SizedBox(height: 10),
         Text(
           _specialAdvice ?? '',
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1.6,
-            color: Colors.black87,
-          ),
+          style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.white70),
         ),
       ],
     );
@@ -563,12 +549,11 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   Widget _buildStatItem(String label, String value) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white54)),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
       ],
     );
   }
