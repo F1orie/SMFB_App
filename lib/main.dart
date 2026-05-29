@@ -5,6 +5,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:smf_app/app/main.dart';
 import 'package:smf_app/features/alarm/application/sleep_task_handler.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/breathing_bottom_ball_motion.dart';
@@ -53,36 +54,56 @@ void _initForegroundTask() {
 @pragma('vm:entry-point')
 void backgroundServiceEntryPoint() => sleepRecordingCallback();
 
-/// flutter_overlay_window の OverlayService から呼ばれるエントリポイント。
-/// SharedPreferences から選択中のパターンを読んで表示する。
+/// flutter_overlay_window のエントリポイント。
+/// 初期パターンをSharedPreferencesから読み、その後はshareData()で動的に切り替え可能。
 @pragma('vm:entry-point')
 void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  final pattern = prefs.getString('motion_selected_pattern') ?? 'pendulum';
+  final initial = prefs.getString('motion_selected_pattern') ?? 'pendulum';
 
-  runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Material(
-        color: Colors.transparent,
-        child: _overlayWidget(pattern),
-      ),
-    ),
-  );
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: _OverlayShell(initialPattern: initial),
+  ));
+}
+
+class _OverlayShell extends StatefulWidget {
+  const _OverlayShell({required this.initialPattern});
+  final String initialPattern;
+
+  @override
+  State<_OverlayShell> createState() => _OverlayShellState();
+}
+
+class _OverlayShellState extends State<_OverlayShell> {
+  late String _pattern;
+
+  @override
+  void initState() {
+    super.initState();
+    _pattern = widget.initialPattern;
+    // アプリ側から shareData() で送られてくるパターン名を受信して即時切り替え
+    FlutterOverlayWindow.overlayListener.listen((data) {
+      if (data is String && mounted) setState(() => _pattern = data);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: _overlayWidget(_pattern),
+    );
+  }
 }
 
 Widget _overlayWidget(String pattern) {
   switch (pattern) {
-    case 'breathing_bottom':
-      return const BreathingBottomBallMotion();
-    case 'moving_bottom':
-      return const MovingBottomBallMotion();
-    case 'tornado':
-      return const TornadoTopViewMotion();
-    case 'sleepy_breathing':
-      return const SleepyBreathingBallsMotion();
-    default:
-      return const PendulumBallMotion(period: Duration(milliseconds: 5000));
+    case 'breathing_bottom': return const BreathingBottomBallMotion();
+    case 'moving_bottom':    return const MovingBottomBallMotion();
+    case 'tornado':          return const TornadoTopViewMotion();
+    case 'sleepy_breathing': return const SleepyBreathingBallsMotion();
+    default:                 return const PendulumBallMotion(period: Duration(milliseconds: 5000));
   }
 }

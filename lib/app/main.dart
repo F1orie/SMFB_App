@@ -12,6 +12,7 @@ import 'package:smf_app/features/graph/presentation/graph_page.dart';
 import 'package:smf_app/features/motion/application/motion_state.dart';
 import 'package:smf_app/features/motion/infrastructure/motion_background_controller.dart';
 import 'package:smf_app/features/motion/presentation/motion_page.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/breathing_bottom_ball_motion.dart';
@@ -132,6 +133,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     MotionState.tornadoShowInShell.value = false;
     MotionState.sleepyBreathingShowInShell.value = false;
     await MotionBackgroundController.showOverlayWhenAppBackgrounded();
+    // オーバーレイに現在のパターンを送信（既存オーバーレイの動的切り替え用）
+    final selectedPattern = prefs.getString('motion_selected_pattern') ?? 'pendulum';
+    await FlutterOverlayWindow.shareData(selectedPattern);
   }
 
   @override
