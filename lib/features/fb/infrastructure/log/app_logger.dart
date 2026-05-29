@@ -10,9 +10,9 @@ class AppLogger {
   // エラー用のログ出力
   static void e(String message, [Object? error, StackTrace? stackTrace]) {
     developer.log(
-      'ERROR: $message', 
-      name: 'AppLog', 
-      error: error, 
+      'ERROR: $message',
+      name: 'AppLog',
+      error: error,
       stackTrace: stackTrace,
     );
   }

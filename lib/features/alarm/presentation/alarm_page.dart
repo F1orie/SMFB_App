@@ -81,32 +81,26 @@ class _AlarmPageState extends State<AlarmPage> {
     _minuteCtrl = FixedExtentScrollController(
       initialItem: _minute ~/ _alarmMinuteGranularity,
     );
-    initAlarmNotifications();
-    _applyStoredSettings();
-  }
-
-  /// SharedPreferences に保存された設定をサービスに反映する。
-  Future<void> _applyStoredSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final normFactor = prefs.getDouble('sensor_norm_factor') ?? 2.0;
-    _recorderService.setNormFactor(normFactor);
-    final volume = prefs.getDouble('alarm_volume') ?? 0.8;
-    await _alarmSoundService.setVolume(volume);
+    unawaited(
+      initAlarmNotifications().catchError((Object error, StackTrace _) {
+        debugPrint('Alarm notification initialization failed: $error');
+      }),
+    );
   }
 
   @override
-void dispose() {
-  _hourCtrl.dispose();
-  _minuteCtrl.dispose();
-  _recorderService.dispose();
+  void dispose() {
+    _hourCtrl.dispose();
+    _minuteCtrl.dispose();
+    _recorderService.dispose();
 
-  _notificationTimer?.cancel();
+    _notificationTimer?.cancel();
 
-  _alarmTimerService.dispose();
-  _alarmSoundService.dispose();
+    _alarmTimerService.dispose();
+    _alarmSoundService.dispose();
 
-  super.dispose();
-}
+    super.dispose();
+  }
 
   String _wakeWindowLabel() {
     final endM = _hour * 60 + _minute;
@@ -138,11 +132,11 @@ void dispose() {
     // アラーム時刻に起床通知を送る
     _notificationTimer?.cancel();
     _alarmTimerService.setAlarm(
-  alarmTime: alarmDt,
-  onRing: () {
-    _ringAlarm();
-  },
-);
+      alarmTime: alarmDt,
+      onRing: () {
+        _ringAlarm();
+      },
+    );
     if (!kIsWeb) {
       _notificationTimer = Timer(alarmDt.difference(now), () {
         _notifications.show(
@@ -166,9 +160,9 @@ void dispose() {
       _lastResult = null;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('睡眠記録を開始しました')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('睡眠記録を開始しました')));
   }
 
   Future<void> _stopRecording() async {
@@ -186,11 +180,7 @@ void dispose() {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          result == null ? '記録中のデータがありません' : '睡眠記録を停止しました',
-        ),
-      ),
+      SnackBar(content: Text(result == null ? '記録中のデータがありません' : '睡眠記録を停止しました')),
     );
 
     if (result != null) {
@@ -202,51 +192,52 @@ void dispose() {
       });
     }
   }
+
   Future<void> _ringAlarm() async {
-  await _alarmSoundService.play();
+    await _alarmSoundService.play();
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('アラーム'),
-        content: const Text('起床時間です'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await _alarmSoundService.stop();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('アラーム'),
+          content: const Text('起床時間です'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await _alarmSoundService.stop();
 
-              _alarmTimerService.snooze(
-                onRing: () {
-                  _ringAlarm();
-                },
-              );
+                _alarmTimerService.snooze(
+                  onRing: () {
+                    _ringAlarm();
+                  },
+                );
 
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('SNOOZE 5分'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await _alarmSoundService.stop();
-              _alarmTimerService.cancel();
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('SNOOZE 5分'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await _alarmSoundService.stop();
+                _alarmTimerService.cancel();
 
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('STOP'),
-          ),
-        ],
-      );
-    },
-  );
-}
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('STOP'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Future<void> _showMemoDialog(String sessionId) async {
     await showDialog<void>(
@@ -267,8 +258,9 @@ void dispose() {
 
     if (picked == null || !mounted) return;
 
-    final sessionId =
-        await _dummySleepDataService.generateAndSave(date: picked);
+    final sessionId = await _dummySleepDataService.generateAndSave(
+      date: picked,
+    );
 
     if (!mounted) return;
 
@@ -277,11 +269,7 @@ void dispose() {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${picked.month}月${picked.day}日のダミーデータを保存しました',
-        ),
-      ),
+      SnackBar(content: Text('${picked.month}月${picked.day}日のダミーデータを保存しました')),
     );
   }
 
@@ -539,10 +527,7 @@ class _WheelColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(
-        dragDevices: {
-          PointerDeviceKind.touch,
-          PointerDeviceKind.mouse,
-        },
+        dragDevices: {PointerDeviceKind.touch, PointerDeviceKind.mouse},
       ),
       child: ListWheelScrollView.useDelegate(
         controller: controller,
@@ -557,10 +542,9 @@ class _WheelColumn extends StatelessWidget {
             return Center(
               child: Text(
                 labelBuilder(index),
-                style: const TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.w200,
-                  color: Colors.white,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
               ),
             );
@@ -587,7 +571,9 @@ class _AdBannerPlaceholder extends StatelessWidget {
       ),
       child: const Text(
         '広告枠（プレースホルダー）',
-        style: TextStyle(fontSize: 12, color: Colors.white30),
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(color: Colors.grey.shade700),
       ),
     );
   }

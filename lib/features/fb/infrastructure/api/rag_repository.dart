@@ -1,21 +1,33 @@
 // lib/features/fb/infrastructure/api/rag_repository.dart
-// NOTE: AI分析は ApiClient.chat() を直接使う実装に移行しました。
+// NOTE: 現行UIは RagAnalyzeClient を直接使います。
 // このクラスは後方互換のために残しています。
 
 import '../log/app_logger.dart';
-import 'api_client.dart';
+import '../payload/sleep_payload.dart';
+import 'rag_analyze_client.dart';
 
 class RagRepository {
-  final ApiClient _apiClient = ApiClient();
+  final RagAnalyzeClient _client = RagAnalyzeClient();
 
-  /// 睡眠分析を Claude API で実行する
+  /// 睡眠分析をRAG APIで実行する
   Future<Map<String, dynamic>> fetchAnalysis(String userInput) async {
     try {
-      final answer = await _apiClient.chat(
-        systemPrompt: 'あなたは睡眠専門のAIアドバイザーです。日本語で回答してください。',
-        userMessage: userInput,
+      final result = await _client.analyze(
+        query: userInput,
+        adviceType: 'chat',
+        sleepData: const SleepPayload(
+          payloadVersion: SleepPayload.currentVersion,
+          sleepDataSource: 'existing_repository_fallback',
+          sessions: [],
+          epochs: [],
+          notes: [],
+        ),
       );
-      return {'answer': answer};
+      return {
+        'text': result.text,
+        'confidence': result.confidence,
+        'created_at': result.createdAt.toIso8601String(),
+      };
     } catch (e) {
       AppLogger.e('リポジトリでの通信失敗', e);
       rethrow;

@@ -3,14 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/alarm/domain/sleep_session.dart';
-import 'package:smf_app/features/fb/infrastructure/api/api_client.dart';
+import 'package:smf_app/features/fb/infrastructure/api/rag_analyze_client.dart';
+import 'package:smf_app/features/fb/infrastructure/payload/sleep_payload_builder.dart';
 
 class FbChatDialog extends StatefulWidget {
-  const FbChatDialog({
-    super.key,
-    required this.session,
-    required this.memo,
-  });
+  const FbChatDialog({super.key, required this.session, required this.memo});
 
   final SleepSession session;
   final String memo;
@@ -20,7 +17,8 @@ class FbChatDialog extends StatefulWidget {
 }
 
 class _FbChatDialogState extends State<FbChatDialog> {
-  final _apiClient = ApiClient();
+  final _ragClient = RagAnalyzeClient();
+  final _payloadBuilder = SleepPayloadBuilder();
   final _textCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -54,35 +52,6 @@ class _FbChatDialogState extends State<FbChatDialog> {
     await prefs.setString(_prefsKey, jsonEncode(_messages));
   }
 
-  String get _systemPrompt {
-    final startDt =
-        DateTime.fromMillisecondsSinceEpoch(widget.session.startAtEpochMs);
-    final endDt = widget.session.endAtEpochMs != null
-        ? DateTime.fromMillisecondsSinceEpoch(widget.session.endAtEpochMs!)
-        : null;
-
-    final durationMin = endDt?.difference(startDt).inMinutes;
-    final durationLabel = durationMin != null
-        ? '${durationMin ~/ 60}時間${durationMin % 60}分'
-        : '不明';
-
-    return '''あなたは睡眠専門のAIアドバイザーです。
-ユーザーの質問に対して、睡眠の観点から具体的で実践的なアドバイスを日本語でわかりやすく回答してください。
-回答は300文字以内で簡潔にまとめてください。
-
-【ユーザーの睡眠データ】
-就寝時刻: ${_formatTime(startDt)}
-起床時刻: ${endDt != null ? _formatTime(endDt) : '不明'}
-睡眠時間: $durationLabel
-ユーザーのメモ: ${widget.memo.isNotEmpty ? widget.memo : 'なし'}''';
-  }
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-
   Future<void> _sendMessage() async {
     final text = _textCtrl.text.trim();
     if (text.isEmpty || _isSending) return;
@@ -102,11 +71,16 @@ class _FbChatDialogState extends State<FbChatDialog> {
         .toList();
 
     try {
-      final reply = await _apiClient.chat(
-        systemPrompt: _systemPrompt,
-        userMessage: text,
-        history: history,
+      final payload = await _payloadBuilder.build(
+        targetSession: widget.session,
       );
+      final result = await _ragClient.analyze(
+        query: text,
+        adviceType: 'chat',
+        sleepData: payload,
+        chatHistory: history,
+      );
+      final reply = result.text;
 
       if (mounted) {
         setState(() {
@@ -184,8 +158,11 @@ class _FbChatDialogState extends State<FbChatDialog> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.chat_bubble_outline,
-                            size: 48, color: Colors.grey),
+                        const Icon(
+                          Icons.chat_bubble_outline,
+                          size: 48,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(height: 12),
                         const Text(
                           '睡眠についての質問をどうぞ',
@@ -195,7 +172,9 @@ class _FbChatDialogState extends State<FbChatDialog> {
                         Text(
                           '例：「もっと深く寝るには？」',
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade400),
+                            fontSize: 12,
+                            color: Colors.grey.shade400,
+                          ),
                         ),
                       ],
                     ),
@@ -233,7 +212,9 @@ class _FbChatDialogState extends State<FbChatDialog> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                   ),
                   onSubmitted: (_) => _sendMessage(),
                 ),
@@ -257,32 +238,33 @@ class _FbChatDialogState extends State<FbChatDialog> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
             CircleAvatar(
               radius: 14,
               backgroundColor: Colors.blue.shade100,
-              child: const Icon(Icons.auto_awesome,
-                  size: 16, color: Colors.blue),
+              child: const Icon(
+                Icons.auto_awesome,
+                size: 16,
+                color: Colors.blue,
+              ),
             ),
             const SizedBox(width: 6),
           ],
           Flexible(
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isUser ? Colors.blue : Colors.grey.shade100,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
-                  bottomLeft:
-                      isUser ? const Radius.circular(16) : Radius.zero,
-                  bottomRight:
-                      isUser ? Radius.zero : const Radius.circular(16),
+                  bottomLeft: isUser ? const Radius.circular(16) : Radius.zero,
+                  bottomRight: isUser ? Radius.zero : const Radius.circular(16),
                 ),
               ),
               child: Text(
@@ -313,8 +295,7 @@ class _FbChatDialogState extends State<FbChatDialog> {
           ),
           const SizedBox(width: 6),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(16),
@@ -357,9 +338,10 @@ class _DotBlinkState extends State<_DotBlink>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _anim = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _anim = Tween<double>(
+      begin: 0.3,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _ctrl.repeat(reverse: true);
     });

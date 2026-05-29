@@ -34,11 +34,15 @@ class ApiClient {
       for (final h in history)
         {
           'role': h['role'] == 'assistant' ? 'model' : h['role'],
-          'parts': [{'text': h['content']}],
+          'parts': [
+            {'text': h['content']},
+          ],
         },
       {
         'role': 'user',
-        'parts': [{'text': userMessage}],
+        'parts': [
+          {'text': userMessage},
+        ],
       },
     ];
 
@@ -46,7 +50,9 @@ class ApiClient {
 
     final body = jsonEncode({
       'system_instruction': {
-        'parts': [{'text': systemPrompt}],
+        'parts': [
+          {'text': systemPrompt},
+        ],
       },
       'contents': contents,
       'generationConfig': {
@@ -69,7 +75,8 @@ class ApiClient {
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
           final data =
-              jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+              jsonDecode(utf8.decode(response.bodyBytes))
+                  as Map<String, dynamic>;
           final candidates = data['candidates'] as List<dynamic>;
           final candidate = candidates.first as Map<String, dynamic>;
 

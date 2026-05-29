@@ -10,7 +10,7 @@ class AnalyzeChatUseCase {
   Future<AnalysisResult> execute(String input) async {
     // 1. リポジトリに通信を依頼
     final jsonResponse = await _repository.fetchAnalysis(input);
-    
+
     // 2. 受け取った生のデータをDomain層のモデルに変換（分析準備）
     return AnalysisResult.fromJson(jsonResponse);
   }

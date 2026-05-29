@@ -18,13 +18,20 @@ DailySleepDepthMock buildMockDailySleepDepth() {
   final totalMinutes = (endHour - startHour) * 60; // [cite: 10]
   final points = <SleepDepthPoint>[];
 
-  for (var m = 0; m <= totalMinutes; m += stepMinutes) { // [cite: 11]
+  for (var m = 0; m <= totalMinutes; m += stepMinutes) {
+    // [cite: 11]
     final t = m / totalMinutes;
     // 数学的な波形で睡眠の深さをシミュレート [cite: 12]
-    final base = 0.45 + 0.30 * sin(t * pi) + 0.18 * sin(t * pi * 4 + 0.8) - 0.08 * sin(t * pi * 7);
+    final base =
+        0.45 +
+        0.30 * sin(t * pi) +
+        0.18 * sin(t * pi * 4 + 0.8) -
+        0.08 * sin(t * pi * 7);
     final depth01 = _clamp01(base); // [cite: 13]
 
-    points.add(SleepDepthPoint(minuteFromZero: m, depth01: depth01)); // [cite: 13]
+    points.add(
+      SleepDepthPoint(minuteFromZero: m, depth01: depth01),
+    ); // [cite: 13]
   }
 
   return DailySleepDepthMock(

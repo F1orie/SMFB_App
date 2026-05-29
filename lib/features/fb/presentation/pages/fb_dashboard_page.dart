@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/alarm/domain/sleep_session.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
-import 'package:smf_app/features/fb/infrastructure/api/api_client.dart';
+import 'package:smf_app/features/fb/infrastructure/api/rag_analyze_client.dart';
+import 'package:smf_app/features/fb/infrastructure/log/app_logger.dart';
+import 'package:smf_app/features/fb/infrastructure/payload/sleep_payload.dart';
+import 'package:smf_app/features/fb/infrastructure/payload/sleep_payload_builder.dart';
 import '../dialogs/fb_chat_dialog.dart';
 
 /// 特化型アドバイスの種別
@@ -23,12 +26,11 @@ class FbDashboardPage extends StatefulWidget {
 }
 
 class _FbDashboardPageState extends State<FbDashboardPage> {
-  final _apiClient = ApiClient();
+  final _ragClient = RagAnalyzeClient();
+  final _payloadBuilder = SleepPayloadBuilder();
 
   SleepSession? _session;
   String? _memo;
-  List<SleepSession> _dateSessions = [];
-  int _sessionOffset = 0;
 
   // 通常のAIアドバイス
   String? _aiAdvice;
@@ -61,7 +63,8 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   }
 
   Future<void> _loadData() async {
-    final target = widget.targetSession ??
+    final target =
+        widget.targetSession ??
         (SleepRepository.instance.allSessions.isNotEmpty
             ? SleepRepository.instance.allSessions.last
             : null);
@@ -100,31 +103,29 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _errorDetail = null;
     });
 
-    if (_adviceCache.containsKey(session.id)) {
-      setState(() => _aiAdvice = _adviceCache[session.id]);
+    final memoryCacheKey = _normalAdviceCacheKey(latest.id);
+    if (_adviceCache.containsKey(memoryCacheKey)) {
+      setState(() {
+        _aiAdvice = _adviceCache[memoryCacheKey];
+      });
       return;
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_mainCacheKey(session.id));
+    final saved = prefs.getString(memoryCacheKey);
     if (saved != null) {
-      _adviceCache[session.id] = saved;
-      setState(() => _aiAdvice = saved);
+      _adviceCache[memoryCacheKey] = saved;
+      setState(() {
+        _aiAdvice = saved;
+      });
       return;
     }
 
-    await _runAiAnalysis(session, memo);
+    await _runAiAnalysis(latest);
   }
 
-  void _switchSession(int offset) {
-    if (offset < 0 || offset >= _dateSessions.length) return;
-    setState(() => _sessionOffset = offset);
-    _loadSession(_dateSessions[offset]);
-  }
-
-  /// 通常の睡眠分析（forceRefresh=true でキャッシュを無視して再取得）
-  Future<void> _runAiAnalysis(SleepSession session, String memo,
-      {bool forceRefresh = false}) async {
+  /// 通常の睡眠分析
+  Future<void> _runAiAnalysis(SleepSession session) async {
     setState(() {
       _isLoadingAi = true;
       _hasError = false;
@@ -139,16 +140,18 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     }
 
     try {
-      final systemPrompt = _buildSystemPrompt(session, memo, null);
-      final advice = await _apiClient.chat(
-        systemPrompt: systemPrompt,
-        userMessage: '昨夜の睡眠データを分析して、改善のためのアドバイスをください。',
+      final payload = await _payloadBuilder.build(targetSession: session);
+      final result = await _ragClient.analyze(
+        query: '昨夜の睡眠データを分析して、改善のためのアドバイスをください。',
+        adviceType: 'chat',
+        sleepData: payload,
       );
+      final advice = result.text;
 
-      // 完全なレスポンスのみキャッシュ
-      _adviceCache[session.id] = advice;
+      final cacheKey = _normalAdviceCacheKey(session.id);
+      _adviceCache[cacheKey] = advice;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_mainCacheKey(session.id), advice);
+      await prefs.setString(cacheKey, advice);
 
       if (mounted) {
         setState(() {
@@ -178,41 +181,36 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
   // ★ ボタンが押されたときに特化型アドバイスを取得する関数
   Future<void> _fetchSpecialAdvice(
     SleepSession session,
-    String memo,
-    AdviceType type, {
-    bool forceRefresh = false,
-  }) async {
+    AdviceType type,
+  ) async {
     setState(() {
       _selectedAdviceType = type;
       _isLoadingSpecialAi = true;
       _specialAdvice = null;
     });
 
-    final cacheKey = _specialCacheKey(type.name, session.id);
+    // キャッシュキーを一意にする（セッションID + タイプ名）
+    final cacheKey = _specialAdviceCacheKey(session.id, type);
 
     if (forceRefresh) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(cacheKey);
-    } else {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final saved = prefs.getString(cacheKey);
-        if (saved != null) {
-          setState(() {
-            _specialAdvice = saved;
-            _isLoadingSpecialAi = false;
-          });
-          return;
-        }
-      } catch (_) {}
-    }
+      final saved = prefs.getString(cacheKey);
 
-    try {
-      final systemPrompt = _buildSystemPrompt(session, memo, type);
-      final advice = await _apiClient.chat(
-        systemPrompt: systemPrompt,
-        userMessage: 'この睡眠データに基づいた具体的なおすすめ情報を教えてください。',
+      if (saved != null) {
+        setState(() {
+          _specialAdvice = saved;
+          _isLoadingSpecialAi = false;
+        });
+        return;
+      }
+
+      final payload = await _payloadBuilder.build(targetSession: session);
+      final result = await _ragClient.analyze(
+        query: 'この睡眠データに基づいた具体的なおすすめ情報を教えてください。',
+        adviceType: type.name,
+        sleepData: payload,
       );
+      final advice = result.text;
 
       // 完全なレスポンスのみキャッシュ
       final prefs = await SharedPreferences.getInstance();
@@ -233,61 +231,21 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
         });
       }
     } catch (e) {
+      AppLogger.e('特化型RAGアドバイス取得失敗: ${type.name}', e);
       if (mounted) {
         setState(() {
           _isLoadingSpecialAi = false;
-          _specialAdvice = 'アドバイスの取得に失敗しました。再試行してください。';
+          _specialAdvice = 'アドバイスの取得に失敗しました。再試行してください。\n${e.toString()}';
         });
       }
     }
   }
 
-  // ★ プロンプト生成を一元化するヘルパー関数
-  String _buildSystemPrompt(SleepSession session, String memo, AdviceType? type) {
-    final startDt = DateTime.fromMillisecondsSinceEpoch(session.startAtEpochMs);
-    final endDt = session.endAtEpochMs != null
-        ? DateTime.fromMillisecondsSinceEpoch(session.endAtEpochMs!)
-        : null;
-    final durationMin = endDt?.difference(startDt).inMinutes;
-    final durationLabel =
-        durationMin != null ? '${durationMin ~/ 60}時間${durationMin % 60}分' : '不明';
+  String _normalAdviceCacheKey(String sessionId) =>
+      'fb_rag_ai_advice_${SleepPayload.currentVersion}_$sessionId';
 
-    // 共通注意書き：マークダウン不使用・プレーンテキスト
-    const noMarkdown =
-        'マークダウン記法（**太字**、##見出し、*リスト等）は一切使わず、'
-        'プレーンテキストで回答してください。';
-
-    String targetInstruction =
-        'ユーザーの睡眠データを分析して、具体的で実践的なアドバイスを日本語で提供してください。'
-        'アドバイスは200文字程度で簡潔にまとめてください。$noMarkdown';
-
-    // ボタンのタイプに合わせて指示文を変更
-    if (type == AdviceType.bedding) {
-      targetInstruction =
-          '提示された睡眠データ（特に睡眠時間や就寝の規則性）を考慮し、このユーザーの睡眠の質を高めるために'
-          '「おすすめの寝具（枕、マットレス、掛け布団など）」の具体的な選び方やアプローチを'
-          '親身に、300文字程度で提案してください。$noMarkdown';
-    } else if (type == AdviceType.food) {
-      targetInstruction =
-          '提示された睡眠データを考慮し、睡眠の質を高めるための'
-          '「おすすめの食べ物・飲み物（夕食に良いもの、就寝前に最適なホットドリンク、避けるべきものなど）」を'
-          '親身に、300文字程度で具体的に提案してください。$noMarkdown';
-    } else if (type == AdviceType.routine) {
-      targetInstruction =
-          '提示された睡眠データを考慮し、入眠をスムーズにするための'
-          '「おすすめの夜のルーティン（ストレッチ、入浴タイミング、デジタルデトックスなど）」を'
-          '親身に、300文字程度でタイムラインを交えて具体的に提案してください。$noMarkdown';
-    }
-
-    return '''あなたは睡眠専門のAIアドバイザーです。
-$targetInstruction
-
-以下の睡眠データを参考にアドバイスしてください。
-就寝時刻: ${_formatTime(startDt)}
-起床時刻: ${endDt != null ? _formatTime(endDt) : '不明'}
-睡眠時間: $durationLabel
-ユーザーのメモ: ${memo.isNotEmpty ? memo : 'なし'}''';
-  }
+  String _specialAdviceCacheKey(String sessionId, AdviceType type) =>
+      'fb_rag_special_${SleepPayload.currentVersion}_${type.name}_$sessionId';
 
   String _formatTime(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
@@ -310,59 +268,8 @@ $targetInstruction
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('分析,フィードバック'),
-      ),
-      body: _session == null
-          ? _buildNoData()
-          : Column(
-              children: [
-                if (_dateSessions.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          onPressed: _sessionOffset > 0
-                              ? () => _switchSession(_sessionOffset - 1)
-                              : null,
-                          iconSize: 20,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                          ),
-                          child: Text(
-                            '${_sessionOffset + 1} / ${_dateSessions.length} 件目',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: _sessionOffset < _dateSessions.length - 1
-                              ? () => _switchSession(_sessionOffset + 1)
-                              : null,
-                          iconSize: 20,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        ),
-                      ],
-                    ),
-                  ),
-                Expanded(child: _buildContent(_session!)),
-              ],
-            ),
+      appBar: AppBar(title: const Text('分析,フィードバック')),
+      body: _session == null ? _buildNoData() : _buildContent(_session!),
     );
   }
 
@@ -413,7 +320,10 @@ $targetInstruction
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.calendar_today, color: Colors.blue),
+                    leading: const Icon(
+                      Icons.calendar_today,
+                      color: Colors.blue,
+                    ),
                     title: Text(
                       '${_formatDate(startDt)}（${endDt != null ? _formatDate(endDt) : ""}）',
                     ),
@@ -424,15 +334,24 @@ $targetInstruction
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildStatItem('就寝', _formatTime(startDt)),
-                      _buildStatItem('起床', endDt != null ? _formatTime(endDt) : '--:--'),
+                      _buildStatItem(
+                        '起床',
+                        endDt != null ? _formatTime(endDt) : '--:--',
+                      ),
                       _buildStatItem('時間', _durationLabel(session)),
                     ],
                   ),
                   if (_memo != null && _memo!.isNotEmpty) ...[
                     const Divider(),
                     ListTile(
-                      leading: const Icon(Icons.note_alt_outlined, color: Colors.blueGrey),
-                      title: const Text('メモ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      leading: const Icon(
+                        Icons.note_alt_outlined,
+                        color: Colors.blueGrey,
+                      ),
+                      title: const Text(
+                        'メモ',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       subtitle: Text(_memo!),
                     ),
                   ],
@@ -468,13 +387,28 @@ $targetInstruction
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildSpecialButton(session, AdviceType.bedding, '🛏️ 寝具', Colors.indigo),
-              _buildSpecialButton(session, AdviceType.food, '🥦 食べ物', Colors.teal),
-              _buildSpecialButton(session, AdviceType.routine, '🧘 ルーティン', Colors.deepOrange),
+              _buildSpecialButton(
+                session,
+                AdviceType.bedding,
+                '🛏️ 寝具',
+                Colors.indigo,
+              ),
+              _buildSpecialButton(
+                session,
+                AdviceType.food,
+                '🥦 食べ物',
+                Colors.teal,
+              ),
+              _buildSpecialButton(
+                session,
+                AdviceType.routine,
+                '🧘 ルーティン',
+                Colors.deepOrange,
+              ),
             ],
           ),
 
-          // ★ 特化型アドバイスの結果表示枠
+          // ★ 新設：特化型アドバイスの結果表示枠
           if (_selectedAdviceType != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -501,12 +435,12 @@ $targetInstruction
                   context: context,
                   isScrollControlled: true,
                   shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
                   ),
-                  builder: (context) => FbChatDialog(
-                    session: session,
-                    memo: _memo ?? '',
-                  ),
+                  builder: (context) =>
+                      FbChatDialog(session: session, memo: _memo ?? ''),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -563,7 +497,7 @@ $targetInstruction
           ],
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: () => _runAiAnalysis(session, _memo ?? '', forceRefresh: true),
+            onPressed: () => _runAiAnalysis(session),
             icon: const Icon(Icons.refresh),
             label: const Text('再試行'),
           ),
@@ -583,10 +517,7 @@ $targetInstruction
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            _aiAdvice!,
-            style: const TextStyle(fontSize: 15, height: 1.6),
-          ),
+          Text(_aiAdvice!, style: const TextStyle(fontSize: 15, height: 1.5)),
         ],
       );
     }
@@ -594,9 +525,13 @@ $targetInstruction
     return const SizedBox.shrink();
   }
 
-  // ★ 特化型アドバイスボタンのビルドメソッド
+  // ★ 新設：特化型アドバイスボタンのビルドメソッド
   Widget _buildSpecialButton(
-      SleepSession session, AdviceType type, String label, Color themeColor) {
+    SleepSession session,
+    AdviceType type,
+    String label,
+    Color themeColor,
+  ) {
     final isSelected = _selectedAdviceType == type;
     return Expanded(
       child: Padding(
@@ -606,14 +541,18 @@ $targetInstruction
             backgroundColor: isSelected ? themeColor : Colors.white,
             foregroundColor: isSelected ? Colors.white : themeColor,
             side: BorderSide(color: themeColor),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
           onPressed: _isLoadingSpecialAi
               ? null
-              : () => _fetchSpecialAdvice(session, _memo ?? '', type),
-          child: Text(label,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              : () => _fetchSpecialAdvice(session, type),
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
         ),
       ),
     );
@@ -655,14 +594,20 @@ $targetInstruction
           children: [
             Icon(icon, color: iconColor, size: 22),
             const SizedBox(width: 8),
-            Text(title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Text(
           _specialAdvice ?? '',
-          style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.black87),
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.6,
+            color: Colors.black87,
+          ),
         ),
       ],
     );
@@ -673,9 +618,11 @@ $targetInstruction
       children: [
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
 }
-

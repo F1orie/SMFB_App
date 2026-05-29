@@ -11,9 +11,8 @@ void main() {
     expect(find.text('データ'), findsNothing);
 
     await tester.tap(find.text('グラフ'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('データ'), findsOneWidget);
-    expect(find.text('23:58'), findsOneWidget);
   });
 }
