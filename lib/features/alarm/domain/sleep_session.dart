@@ -6,6 +6,7 @@ class SleepSession {
     required this.startAtEpochMs,
     this.endAtEpochMs,
     this.alarmTimeEpochMs,
+    this.sleepOnsetEpochMs,
     required this.status,
     required this.algoVersion,
     required this.samplingPeriodSec,
@@ -18,6 +19,8 @@ class SleepSession {
   final int startAtEpochMs;
   final int? endAtEpochMs;
   final int? alarmTimeEpochMs;
+  /// 入眠時刻（scoreDepth≥0.8 が3エポック連続した先頭のエポック時刻）
+  final int? sleepOnsetEpochMs;
   final SleepSessionStatus status;
   final String algoVersion;
   final int samplingPeriodSec;
@@ -30,6 +33,7 @@ class SleepSession {
         'startAtEpochMs': startAtEpochMs,
         'endAtEpochMs': endAtEpochMs,
         'alarmTimeEpochMs': alarmTimeEpochMs,
+        'sleepOnsetEpochMs': sleepOnsetEpochMs,
         'status': status.name,
         'algoVersion': algoVersion,
         'samplingPeriodSec': samplingPeriodSec,
@@ -43,6 +47,7 @@ class SleepSession {
         startAtEpochMs: json['startAtEpochMs'] as int,
         endAtEpochMs: json['endAtEpochMs'] as int?,
         alarmTimeEpochMs: json['alarmTimeEpochMs'] as int?,
+        sleepOnsetEpochMs: json['sleepOnsetEpochMs'] as int?,
         status: SleepSessionStatus.values.byName(json['status'] as String),
         algoVersion: json['algoVersion'] as String,
         samplingPeriodSec: json['samplingPeriodSec'] as int,

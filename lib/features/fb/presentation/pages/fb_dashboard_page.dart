@@ -11,6 +11,11 @@ import '../dialogs/fb_chat_dialog.dart';
 /// 特化型アドバイスの種別
 enum AdviceType { bedding, food, routine }
 
+// ── キャッシュキー（v2: 旧キャッシュを無効化） ──────────────────────────
+String _mainCacheKey(String sessionId) => 'fb_ai_advice_v2_$sessionId';
+String _specialCacheKey(String typeName, String sessionId) =>
+    'fb_special_v2_${typeName}_$sessionId';
+
 class FbDashboardPage extends StatefulWidget {
   const FbDashboardPage({super.key, this.targetSession});
 
@@ -46,6 +51,17 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     _loadData();
   }
 
+  List<SleepSession> _sessionsForDate(DateTime date) {
+    final list = SleepRepository.instance.allSessions.where((s) {
+      final start = DateTime.fromMillisecondsSinceEpoch(s.startAtEpochMs);
+      return start.year == date.year &&
+          start.month == date.month &&
+          start.day == date.day;
+    }).toList();
+    list.sort((a, b) => b.startAtEpochMs.compareTo(a.startAtEpochMs));
+    return list;
+  }
+
   Future<void> _loadData() async {
     final target =
         widget.targetSession ??
@@ -56,17 +72,35 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     if (target == null) {
       setState(() {
         _session = null;
+        _dateSessions = [];
       });
       return;
     }
 
-    final latest = target;
-    final notes = SleepRepository.instance.notesForSession(latest.id);
+    final targetDt = DateTime.fromMillisecondsSinceEpoch(target.startAtEpochMs);
+    final dateSessions = _sessionsForDate(targetDt);
+    final offset = dateSessions.indexWhere((s) => s.id == target.id);
+
+    setState(() {
+      _dateSessions = dateSessions;
+      _sessionOffset = offset >= 0 ? offset : 0;
+    });
+
+    await _loadSession(dateSessions[_sessionOffset]);
+  }
+
+  Future<void> _loadSession(SleepSession session) async {
+    final notes = SleepRepository.instance.notesForSession(session.id);
     final memo = notes.isNotEmpty ? notes.last.memo : '';
 
     setState(() {
-      _session = latest;
+      _session = session;
       _memo = memo;
+      _aiAdvice = null;
+      _selectedAdviceType = null;
+      _specialAdvice = null;
+      _hasError = false;
+      _errorDetail = null;
     });
 
     final memoryCacheKey = _normalAdviceCacheKey(latest.id);
@@ -99,6 +133,12 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _aiAdvice = null;
     });
 
+    if (forceRefresh) {
+      _adviceCache.remove(session.id);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_mainCacheKey(session.id));
+    }
+
     try {
       final payload = await _payloadBuilder.build(targetSession: session);
       final result = await _ragClient.analyze(
@@ -116,6 +156,14 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       if (mounted) {
         setState(() {
           _aiAdvice = advice;
+          _isLoadingAi = false;
+        });
+      }
+    } on MaxTokensException catch (e) {
+      // キャッシュしない（次回また新しいAPIコールで取得する）
+      if (mounted) {
+        setState(() {
+          _aiAdvice = e.partialText;
           _isLoadingAi = false;
         });
       }
@@ -144,7 +192,7 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     // キャッシュキーを一意にする（セッションID + タイプ名）
     final cacheKey = _specialAdviceCacheKey(session.id, type);
 
-    try {
+    if (forceRefresh) {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(cacheKey);
 
@@ -164,11 +212,21 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       );
       final advice = result.text;
 
+      // 完全なレスポンスのみキャッシュ
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setString(cacheKey, advice);
 
       if (mounted) {
         setState(() {
           _specialAdvice = advice;
+          _isLoadingSpecialAi = false;
+        });
+      }
+    } on MaxTokensException catch (e) {
+      // キャッシュしない
+      if (mounted) {
+        setState(() {
+          _specialAdvice = e.partialText;
           _isLoadingSpecialAi = false;
         });
       }
@@ -305,11 +363,9 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
           const SizedBox(height: 24),
 
           // 通常のAIアドバイスセクション
-          const Text(
-            'アドバイス',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
+          const Text('アドバイス',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
@@ -323,7 +379,7 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
 
           const SizedBox(height: 24),
 
-          // ★ 新設：特化型AIアドバイスボタンセクション
+          // ★ 特化型AIアドバイスボタンセクション
           const Text(
             '睡眠の質を高めるおすすめ項目',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -363,7 +419,7 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
               ),
-              child: _buildSpecialAdviceContent(),
+              child: _buildSpecialAdviceContent(session),
             ),
           ],
 
@@ -420,7 +476,8 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
             children: [
               Icon(Icons.error_outline, color: Colors.red, size: 20),
               SizedBox(width: 8),
-              Text('分析に失敗しました。再試行してください。', style: TextStyle(color: Colors.red)),
+              Text('分析に失敗しました。再試行してください。',
+                  style: TextStyle(color: Colors.red)),
             ],
           ),
           if (_errorDetail != null) ...[
@@ -501,8 +558,8 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     );
   }
 
-  // ★ 新設：特化型アドバイスエリアの中身表示
-  Widget _buildSpecialAdviceContent() {
+  // ★ 特化型アドバイスエリアの中身表示
+  Widget _buildSpecialAdviceContent(SleepSession session) {
     if (_isLoadingSpecialAi) {
       return const Center(
         child: Padding(
