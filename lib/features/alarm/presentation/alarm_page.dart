@@ -39,11 +39,11 @@ Future<void> _requestNotificationPermission() async {
 const _alarmMinuteGranularity = 5;
 
 // ── カラーパレット ────────────────────────────────────────────
-const _bgTop    = Color(0xFF0A1628); // 深い紺
-const _bgBottom = Color(0xFF1A2F4E); // やや明るい紺
-const _accent   = Color(0xFF4FC3F7); // 水色アクセント
-const _startBg  = Color(0xFF2ECC71); // START ボタン緑
-const _stopBg   = Color(0xFFE74C3C); // STOP ボタン赤
+const _bgTop    = Color(0xFF050D1F); // 最深ネイビー
+const _bgBottom = Color(0xFF0A1A33); // 深ネイビー
+const _accent   = Color(0xFF00D4FF); // サイアン
+const _startBg  = Color(0xFF00E676); // 発光グリーン
+const _stopBg   = Color(0xFFFF1744); // 発光レッド
 
 /// 睡眠アプリ アラーム設定画面
 class AlarmPage extends StatefulWidget {
@@ -68,7 +68,6 @@ class _AlarmPageState extends State<AlarmPage> {
   final AlarmTimerService _alarmTimerService = AlarmTimerService();
 
   SleepRecordResult? _lastResult;
-  String? _lastDummySessionId;
   Timer? _notificationTimer;
 
   int _hour = 7;
@@ -263,15 +262,9 @@ class _AlarmPageState extends State<AlarmPage> {
 
     if (picked == null || !mounted) return;
 
-    final sessionId = await _dummySleepDataService.generateAndSave(
-      date: picked,
-    );
+    await _dummySleepDataService.generateAndSave(date: picked);
 
     if (!mounted) return;
-
-    setState(() {
-      _lastDummySessionId = sessionId;
-    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${picked.month}月${picked.day}日のダミーデータを保存しました')),
@@ -280,121 +273,137 @@ class _AlarmPageState extends State<AlarmPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [_bgTop, _bgBottom],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const SizedBox(height: 28),
-              // ── キャプションラベル ──────────────────────────
-              const Text(
-                'アラーム設定',
-                style: TextStyle(
-                  fontSize: 13,
-                  letterSpacing: 3,
-                  color: Colors.white54,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 12),
-              // ── 時刻ピッカー ────────────────────────────────
-              Expanded(
-                child: Center(
-                  child: _AlarmTimePickerCard(
-                    itemExtent: _itemExtent,
-                    hourCtrl: _hourCtrl,
-                    minuteCtrl: _minuteCtrl,
-                    onHourChanged: (h) => setState(() => _hour = h),
-                    onMinuteChanged: (m) => setState(() => _minute = m),
+    return ValueListenableBuilder<RecorderState>(
+      valueListenable: _recorderService.stateNotifier,
+      builder: (context, state, _) {
+        final isRecording = state == RecorderState.recording;
+        return Stack(
+          children: [
+            // ── ドットグリッド背景 ────────────────────────────
+            Positioned.fill(
+              child: CustomPaint(painter: _DotGridPainter()),
+            ),
+            // ── グラデーション背景 ────────────────────────────
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [_bgTop, _bgBottom],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              // ── 起床ウィンドウ ──────────────────────────────
-              Text(
-                _wakeWindowLabel(),
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: _accent,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 28),
-              // ── START / STOP 円形ボタン ────────────────────
-              ValueListenableBuilder<RecorderState>(
-                valueListenable: _recorderService.stateNotifier,
-                builder: (context, state, _) {
-                  final isRecording = state == RecorderState.recording;
-                  final btnColor = isRecording ? _stopBg : _startBg;
-                  return GestureDetector(
-                    onTap: isRecording ? _stopRecording : _startRecording,
-                    child: Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: btnColor,
-                        boxShadow: [
-                          BoxShadow(
-                            color: btnColor.withValues(alpha: 0.5),
-                            blurRadius: 24,
-                            spreadRadius: 4,
+            ),
+            // ── メインコンテンツ ──────────────────────────────
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+                  // ── ステータスバー ──────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'SLEEP TIMER',
+                          style: TextStyle(
+                            fontSize: 11,
+                            letterSpacing: 4,
+                            color: Colors.white38,
+                            fontWeight: FontWeight.w600,
                           ),
-                        ],
+                        ),
+                        _StatusPill(isRecording: isRecording),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // ── 大型時刻表示 ────────────────────────────
+                  Text(
+                    '${_hour.toString().padLeft(2, '0')}:${_minute.toString().padLeft(2, '0')}',
+                    style: const TextStyle(
+                      fontSize: 80,
+                      fontWeight: FontWeight.w100,
+                      color: Colors.white,
+                      letterSpacing: 12,
+                      height: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // ── 起床ウィンドウ ──────────────────────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'WAKE  ',
+                        style: TextStyle(
+                          fontSize: 10,
+                          letterSpacing: 3,
+                          color: Colors.white38,
+                        ),
                       ),
-                      child: Center(
-                        child: Text(
-                          isRecording ? 'STOP' : 'START',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5,
-                          ),
+                      Text(
+                        _wakeWindowLabel(),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: _accent,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // ── テック区切り ────────────────────────────
+                  _TechDivider(label: 'SET ALARM'),
+                  const SizedBox(height: 12),
+                  // ── 時刻ピッカー（ブラケット装飾付き） ────────
+                  Expanded(
+                    child: Center(
+                      child: _BracketedPicker(
+                        child: _AlarmTimePickerCard(
+                          itemExtent: _itemExtent,
+                          hourCtrl: _hourCtrl,
+                          minuteCtrl: _minuteCtrl,
+                          onHourChanged: (h) => setState(() => _hour = h),
+                          onMinuteChanged: (m) => setState(() => _minute = m),
                         ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 20),
+                  // ── テック区切り ────────────────────────────
+                  _TechDivider(label: isRecording ? 'RECORDING' : 'STANDBY'),
+                  const SizedBox(height: 24),
+                  // ── START / STOP ボタン（リング付き） ─────────
+                  _GlowButton(
+                    isRecording: isRecording,
+                    onTap: isRecording ? _stopRecording : _startRecording,
+                  ),
+                  const SizedBox(height: 16),
+                  if (_lastResult != null) ...[
+                    _SleepResultSummary(result: _lastResult!),
+                    const SizedBox(height: 8),
+                  ],
+                  // ── ダミーデータ（控えめ） ──────────────────
+                  TextButton.icon(
+                    onPressed: _createDummyData,
+                    style: TextButton.styleFrom(foregroundColor: Colors.white24),
+                    icon: const Icon(Icons.data_object, size: 14),
+                    label: const Text('DEBUG', style: TextStyle(fontSize: 11, letterSpacing: 2)),
+                  ),
+                  const SizedBox(height: 6),
+                  const _AdBannerPlaceholder(),
+                  const SizedBox(height: 8),
+                ],
               ),
-              const SizedBox(height: 16),
-              // ── ダミーデータボタン（目立たせない） ──────────
-              TextButton.icon(
-                onPressed: _createDummyData,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white38,
-                ),
-                icon: const Icon(Icons.data_object, size: 16),
-                label: const Text('ダミーデータ作成'),
-              ),
-              if (_lastResult != null) ...[
-                const SizedBox(height: 6),
-                _SleepResultSummary(result: _lastResult!),
-              ],
-              if (_lastDummySessionId != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '保存済みダミーID: $_lastDummySessionId',
-                  style: const TextStyle(fontSize: 11, color: Colors.white30),
-                ),
-              ],
-              const SizedBox(height: 10),
-              const _AdBannerPlaceholder(),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -579,6 +588,260 @@ class _AdBannerPlaceholder extends StatelessWidget {
         style: Theme.of(
           context,
         ).textTheme.labelMedium?.copyWith(color: Colors.grey.shade700),
+      ),
+    );
+  }
+}
+
+// ── 近未来UIウィジェット群 ────────────────────────────────────
+
+/// ドットグリッド背景
+class _DotGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.035)
+      ..strokeWidth = 1;
+    const spacing = 28.0;
+    for (double x = 0; x < size.width; x += spacing) {
+      for (double y = 0; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.2, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+/// STANDBY / RECORDING ステータスピル
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.isRecording});
+  final bool isRecording;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isRecording ? _stopBg : _accent;
+    final label = isRecording ? 'REC' : 'STANDBY';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.8), blurRadius: 6)],
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 2,
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// テック風区切り線
+class _TechDivider extends StatelessWidget {
+  const _TechDivider({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.transparent, _accent.withValues(alpha: 0.4)],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 9,
+                letterSpacing: 3,
+                color: _accent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_accent.withValues(alpha: 0.4), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// コーナーブラケット装飾付きコンテナ
+class _BracketedPicker extends StatelessWidget {
+  const _BracketedPicker({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    const bracketSize = 16.0;
+    const bracketThickness = 1.5;
+    const bracketColor = _accent;
+
+    Widget corner({required bool top, required bool left}) {
+      return SizedBox(
+        width: bracketSize,
+        height: bracketSize,
+        child: CustomPaint(
+          painter: _CornerPainter(
+            top: top,
+            left: left,
+            color: bracketColor,
+            thickness: bracketThickness,
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: child,
+        ),
+        Positioned(top: 0, left: 0, child: corner(top: true, left: true)),
+        Positioned(top: 0, right: 0, child: corner(top: true, left: false)),
+        Positioned(bottom: 0, left: 0, child: corner(top: false, left: true)),
+        Positioned(bottom: 0, right: 0, child: corner(top: false, left: false)),
+      ],
+    );
+  }
+}
+
+class _CornerPainter extends CustomPainter {
+  const _CornerPainter({
+    required this.top,
+    required this.left,
+    required this.color,
+    required this.thickness,
+  });
+  final bool top, left;
+  final Color color;
+  final double thickness;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = thickness
+      ..style = PaintingStyle.stroke;
+
+    final x = left ? 0.0 : size.width;
+    final y = top ? 0.0 : size.height;
+    final dx = left ? size.width : -size.width;
+    final dy = top ? size.height : -size.height;
+
+    canvas.drawLine(Offset(x, y), Offset(x + dx, y), paint);
+    canvas.drawLine(Offset(x, y), Offset(x, y + dy), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+/// 発光リング付きSTART/STOPボタン
+class _GlowButton extends StatelessWidget {
+  const _GlowButton({required this.isRecording, required this.onTap});
+  final bool isRecording;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final btnColor = isRecording ? _stopBg : _startBg;
+    final label = isRecording ? 'STOP' : 'START';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 外側発光リング
+          Container(
+            width: 116,
+            height: 116,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: btnColor.withValues(alpha: 0.25), width: 1),
+            ),
+          ),
+          // 中間リング
+          Container(
+            width: 102,
+            height: 102,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: btnColor.withValues(alpha: 0.5), width: 1),
+            ),
+          ),
+          // メインボタン
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: btnColor.withValues(alpha: 0.15),
+              border: Border.all(color: btnColor, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: btnColor.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: btnColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.5,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
