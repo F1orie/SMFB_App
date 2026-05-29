@@ -11,10 +11,6 @@ import '../dialogs/fb_chat_dialog.dart';
 /// 特化型アドバイスの種別
 enum AdviceType { bedding, food, routine }
 
-// ── キャッシュキー（v2: 旧キャッシュを無効化） ──────────────────────────
-String _mainCacheKey(String sessionId) => 'fb_ai_advice_v2_$sessionId';
-String _specialCacheKey(String typeName, String sessionId) =>
-    'fb_special_v2_${typeName}_$sessionId';
 
 class FbDashboardPage extends StatefulWidget {
   const FbDashboardPage({super.key, this.targetSession});
@@ -31,7 +27,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
 
   SleepSession? _session;
   String? _memo;
-
   // 通常のAIアドバイス
   String? _aiAdvice;
   bool _isLoadingAi = false;
@@ -51,17 +46,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     _loadData();
   }
 
-  List<SleepSession> _sessionsForDate(DateTime date) {
-    final list = SleepRepository.instance.allSessions.where((s) {
-      final start = DateTime.fromMillisecondsSinceEpoch(s.startAtEpochMs);
-      return start.year == date.year &&
-          start.month == date.month &&
-          start.day == date.day;
-    }).toList();
-    list.sort((a, b) => b.startAtEpochMs.compareTo(a.startAtEpochMs));
-    return list;
-  }
-
   Future<void> _loadData() async {
     final target =
         widget.targetSession ??
@@ -70,23 +54,11 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
             : null);
 
     if (target == null) {
-      setState(() {
-        _session = null;
-        _dateSessions = [];
-      });
+      setState(() => _session = null);
       return;
     }
 
-    final targetDt = DateTime.fromMillisecondsSinceEpoch(target.startAtEpochMs);
-    final dateSessions = _sessionsForDate(targetDt);
-    final offset = dateSessions.indexWhere((s) => s.id == target.id);
-
-    setState(() {
-      _dateSessions = dateSessions;
-      _sessionOffset = offset >= 0 ? offset : 0;
-    });
-
-    await _loadSession(dateSessions[_sessionOffset]);
+    await _loadSession(target);
   }
 
   Future<void> _loadSession(SleepSession session) async {
@@ -103,7 +75,7 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _errorDetail = null;
     });
 
-    final memoryCacheKey = _normalAdviceCacheKey(latest.id);
+    final memoryCacheKey = _normalAdviceCacheKey(session.id);
     if (_adviceCache.containsKey(memoryCacheKey)) {
       setState(() {
         _aiAdvice = _adviceCache[memoryCacheKey];
@@ -121,7 +93,7 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       return;
     }
 
-    await _runAiAnalysis(latest);
+    await _runAiAnalysis(session);
   }
 
   /// 通常の睡眠分析
@@ -132,12 +104,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       _errorDetail = null;
       _aiAdvice = null;
     });
-
-    if (forceRefresh) {
-      _adviceCache.remove(session.id);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_mainCacheKey(session.id));
-    }
 
     try {
       final payload = await _payloadBuilder.build(targetSession: session);
@@ -156,14 +122,6 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       if (mounted) {
         setState(() {
           _aiAdvice = advice;
-          _isLoadingAi = false;
-        });
-      }
-    } on MaxTokensException catch (e) {
-      // キャッシュしない（次回また新しいAPIコールで取得する）
-      if (mounted) {
-        setState(() {
-          _aiAdvice = e.partialText;
           _isLoadingAi = false;
         });
       }
@@ -192,10 +150,9 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     // キャッシュキーを一意にする（セッションID + タイプ名）
     final cacheKey = _specialAdviceCacheKey(session.id, type);
 
-    if (forceRefresh) {
+    try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(cacheKey);
-
       if (saved != null) {
         setState(() {
           _specialAdvice = saved;
@@ -212,21 +169,11 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
       );
       final advice = result.text;
 
-      // 完全なレスポンスのみキャッシュ
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setString(cacheKey, advice);
 
       if (mounted) {
         setState(() {
           _specialAdvice = advice;
-          _isLoadingSpecialAi = false;
-        });
-      }
-    } on MaxTokensException catch (e) {
-      // キャッシュしない
-      if (mounted) {
-        setState(() {
-          _specialAdvice = e.partialText;
           _isLoadingSpecialAi = false;
         });
       }
