@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
+import 'package:smf_app/features/motion/infrastructure/motion_background_controller.dart';
 
 // SharedPreferences キー
 const _kAlarmVolume = 'alarm_volume';
 const _kSnoozeMinutes = 'snooze_minutes';
 const _kSensorNormFactor = 'sensor_norm_factor';
+const _kMotionBackground = 'motion_background_enabled';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -23,6 +25,9 @@ class _SettingsPageState extends State<SettingsPage> {
   // ── センサー設定 ────────────────────────────────────────────
   // スライダー値: 0=低め(3.0) / 1=標準(2.0) / 2=高め(1.0)
   int _sensitivityStep = 1;
+
+  // ── モーション ─────────────────────────────────────────────
+  bool _motionBackground = false;
 
   // ── バージョン ──────────────────────────────────────────────
   String _version = '';
@@ -43,6 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _snoozeMinutes = prefs.getInt(_kSnoozeMinutes) ?? 5;
       final normFactor = prefs.getDouble(_kSensorNormFactor) ?? 2.0;
       _sensitivityStep = _normFactorToStep(normFactor);
+      _motionBackground = prefs.getBool(_kMotionBackground) ?? false;
     });
   }
 
@@ -90,6 +96,18 @@ class _SettingsPageState extends State<SettingsPage> {
     final factor = _stepToNormFactor(step);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_kSensorNormFactor, factor);
+  }
+
+  Future<void> _saveMotionBackground(bool value) async {
+    setState(() => _motionBackground = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kMotionBackground, value);
+    if (value) {
+      await MotionBackgroundController.enable();
+      await MotionBackgroundController.hideOverlayForInAppExperience();
+    } else {
+      await MotionBackgroundController.disable();
+    }
   }
 
   Future<void> _confirmDeleteAll() async {
@@ -201,6 +219,15 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
               ),
             ),
+          ),
+
+          // ── モーション ────────────────────────────────────────
+          _SectionHeader(title: 'モーション'),
+          SwitchListTile(
+            title: const Text('バックグラウンド表示'),
+            subtitle: const Text('他のアプリを使用中もモーションを表示する'),
+            value: _motionBackground,
+            onChanged: _saveMotionBackground,
           ),
 
           // ── 一般 ──────────────────────────────────────────────

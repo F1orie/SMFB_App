@@ -12,6 +12,7 @@ import 'package:smf_app/features/graph/presentation/graph_page.dart';
 import 'package:smf_app/features/motion/application/motion_state.dart';
 import 'package:smf_app/features/motion/infrastructure/motion_background_controller.dart';
 import 'package:smf_app/features/motion/presentation/motion_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/breathing_bottom_ball_motion.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/moving_bottom_ball_motion.dart';
@@ -106,29 +107,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> _onAppResumed() async {
     await MotionBackgroundController.hideOverlayForInAppExperience();
-    if (MotionState.pendulumEnabled.value) {
-      MotionState.pendulumShowInShell.value = true;
-    }
-    if (MotionState.breathingBottomEnabled.value) {
-      MotionState.breathingBottomShowInShell.value = true;
-    }
-    if (MotionState.movingBottomEnabled.value) {
-      MotionState.movingBottomShowInShell.value = true;
-    }
-    if (MotionState.tornadoEnabled.value) {
-      MotionState.tornadoShowInShell.value = true;
-    }
-    if (MotionState.sleepyBreathingEnabled.value) {
-      MotionState.sleepyBreathingShowInShell.value = true;
-    }
+    if (MotionState.pendulumEnabled.value) MotionState.pendulumShowInShell.value = true;
+    if (MotionState.breathingBottomEnabled.value) MotionState.breathingBottomShowInShell.value = true;
+    if (MotionState.movingBottomEnabled.value) MotionState.movingBottomShowInShell.value = true;
+    if (MotionState.tornadoEnabled.value) MotionState.tornadoShowInShell.value = true;
+    if (MotionState.sleepyBreathingEnabled.value) MotionState.sleepyBreathingShowInShell.value = true;
   }
 
   Future<void> _onAppPaused() async {
     if (!MotionBackgroundController.triesSystemOverlay) return;
-    if (MotionState.pendulumEnabled.value) {
-      MotionState.pendulumShowInShell.value = false;
-      await MotionBackgroundController.showOverlayWhenAppBackgrounded();
-    }
+    final prefs = await SharedPreferences.getInstance();
+    final bgEnabled = prefs.getBool('motion_background_enabled') ?? false;
+    if (!bgEnabled) return;
+    final anyEnabled =
+        MotionState.pendulumEnabled.value ||
+        MotionState.breathingBottomEnabled.value ||
+        MotionState.movingBottomEnabled.value ||
+        MotionState.tornadoEnabled.value ||
+        MotionState.sleepyBreathingEnabled.value;
+    if (!anyEnabled) return;
+    MotionState.pendulumShowInShell.value = false;
+    MotionState.breathingBottomShowInShell.value = false;
+    MotionState.movingBottomShowInShell.value = false;
+    MotionState.tornadoShowInShell.value = false;
+    MotionState.sleepyBreathingShowInShell.value = false;
+    await MotionBackgroundController.showOverlayWhenAppBackgrounded();
   }
 
   @override

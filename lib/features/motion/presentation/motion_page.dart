@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/motion/application/motion_state.dart';
 import '../infrastructure/motion_background_controller.dart';
 import 'motion_patterns/pendulum_ball_motion.dart';
@@ -66,37 +67,30 @@ class _MotionPageState extends State<MotionPage> {
     MotionState.sleepyBreathingShowInShell.value = false;
   }
 
-  // 引数に pattern を追加し、動的に切り替えられるように変更
-  static Future<void> _setBackgroundEnabled(bool enabled, String pattern) async {
-    // 複数のモーションが同時に裏で動かないよう、一旦すべてOFFにする
-    _disableAllMotions();
-
-    if (enabled) {
-      _setMotionState(pattern, true);
-      await MotionBackgroundController.enable();
-      await MotionBackgroundController.hideOverlayForInAppExperience();
-    } else {
-      await MotionBackgroundController.disable();
-    }
-  }
-
-  // 排他制御と確実なリセットを行うための統合メソッド 
+  // 排他制御と確実なリセットを行うための統合メソッド
   Future<void> _handleToggle(String pattern, bool isEnabled) async {
     setState(() {
-      // スイッチON時はそのパターンを、OFFにされたらデフォルトの 'pendulum' に戻す
       _selectedPattern = isEnabled ? pattern : 'pendulum';
       _isTurnedOn = isEnabled;
     });
 
+    _disableAllMotions();
+
     if (isEnabled) {
-      // 背景側に「いま何が選ばれているか」を通知する
+      _setMotionState(pattern, true);
       MotionState.selectedPattern.value = pattern;
-      // 選択されたパターンを渡して背景コントローラーをONにする
-      await _setBackgroundEnabled(true, pattern);
+      // バックグラウンドが有効なら、オーバーレイ用にパターンを保存
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('motion_selected_pattern', pattern);
+      // バックグラウンドが有効な場合のみフォアグラウンドサービスを維持
+      final bgEnabled = prefs.getBool('motion_background_enabled') ?? false;
+      if (bgEnabled) {
+        await MotionBackgroundController.hideOverlayForInAppExperience();
+      }
     } else {
-      // OFFにされたら背景を停止して、デフォルト（振り子）に戻す
       MotionState.selectedPattern.value = 'pendulum';
-      await _setBackgroundEnabled(false, pattern);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('motion_selected_pattern', 'pendulum');
     }
   }
 

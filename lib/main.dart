@@ -5,7 +5,12 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:smf_app/app/main.dart';
 import 'package:smf_app/features/alarm/application/sleep_task_handler.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/breathing_bottom_ball_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/moving_bottom_ball_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/tornado_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_patterns/sleepy_breathing_balls_motion.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,16 +54,35 @@ void _initForegroundTask() {
 void backgroundServiceEntryPoint() => sleepRecordingCallback();
 
 /// flutter_overlay_window の OverlayService から呼ばれるエントリポイント。
+/// SharedPreferences から選択中のパターンを読んで表示する。
 @pragma('vm:entry-point')
-void overlayMain() {
+void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final pattern = prefs.getString('motion_selected_pattern') ?? 'pendulum';
+
   runApp(
-    const MaterialApp(
+    MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Material(
         color: Colors.transparent,
-        child: PendulumBallMotion(period: Duration(milliseconds: 5000)),
+        child: _overlayWidget(pattern),
       ),
     ),
   );
+}
+
+Widget _overlayWidget(String pattern) {
+  switch (pattern) {
+    case 'breathing_bottom':
+      return const BreathingBottomBallMotion();
+    case 'moving_bottom':
+      return const MovingBottomBallMotion();
+    case 'tornado':
+      return const TornadoTopViewMotion();
+    case 'sleepy_breathing':
+      return const SleepyBreathingBallsMotion();
+    default:
+      return const PendulumBallMotion(period: Duration(milliseconds: 5000));
+  }
 }
