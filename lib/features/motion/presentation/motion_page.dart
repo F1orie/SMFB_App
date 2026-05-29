@@ -1,74 +1,217 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import 'package:smf_app/features/motion/application/motion_state.dart';
-
 import '../infrastructure/motion_background_controller.dart';
 import 'motion_patterns/pendulum_ball_motion.dart';
+import 'motion_patterns/breathing_bottom_ball_motion.dart';
+import 'motion_patterns/moving_bottom_ball_motion.dart';
+import 'motion_patterns/tornado_motion.dart';
+import 'motion_patterns/sleepy_breathing_balls_motion.dart';
 
-class MotionPage extends StatelessWidget {
+class MotionPage extends StatefulWidget {
   const MotionPage({super.key});
 
   static const backgroundColor = Color(0xFFEFF2F6);
 
-  static Future<void> _setPendulumEnabled(bool enabled) async {
+  @override
+  State<MotionPage> createState() => _MotionPageState();
+}
+
+class _MotionPageState extends State<MotionPage> {
+  // 現在選択されているモーションのIDと、それがONになっているかをローカルで管理
+  String _selectedPattern = 'pendulum';
+  bool _isTurnedOn = false;
+
+  // 選択されたパターンに応じて、対応する MotionState のフラグを切り替える
+  static void _setMotionState(String pattern, bool isEnabled) {
+    switch (pattern) {
+      case 'pendulum':
+        MotionState.pendulumEnabled.value = isEnabled;
+        MotionState.pendulumShowInShell.value = isEnabled;
+        break;
+      case 'breathing_bottom':
+        MotionState.breathingBottomEnabled.value = isEnabled;
+        MotionState.breathingBottomShowInShell.value = isEnabled;
+        break;
+      case 'moving_bottom':
+        MotionState.movingBottomEnabled.value = isEnabled;
+        MotionState.movingBottomShowInShell.value = isEnabled;
+        break;
+      case 'tornado':
+        MotionState.tornadoEnabled.value = isEnabled;
+        MotionState.tornadoShowInShell.value = isEnabled;
+        break;
+      case 'sleepy_breathing':
+        MotionState.sleepyBreathingEnabled.value = isEnabled;
+        MotionState.sleepyBreathingShowInShell.value = isEnabled;
+        break;
+    }
+  }
+
+  // すべてのモーションフラグを強制的にリセットするヘルパー（排他制御）
+  static void _disableAllMotions() {
+    MotionState.pendulumEnabled.value = false;
+    MotionState.pendulumShowInShell.value = false;
+    
+    MotionState.breathingBottomEnabled.value = false;
+    MotionState.breathingBottomShowInShell.value = false;
+    
+    MotionState.movingBottomEnabled.value = false;
+    MotionState.movingBottomShowInShell.value = false;
+    
+    MotionState.tornadoEnabled.value = false;
+    MotionState.tornadoShowInShell.value = false;
+    
+    MotionState.sleepyBreathingEnabled.value = false;
+    MotionState.sleepyBreathingShowInShell.value = false;
+  }
+
+  // 引数に pattern を追加し、動的に切り替えられるように変更
+  static Future<void> _setBackgroundEnabled(bool enabled, String pattern) async {
+    // 複数のモーションが同時に裏で動かないよう、一旦すべてOFFにする
+    _disableAllMotions();
+
     if (enabled) {
-      MotionState.pendulumEnabled.value = true;
-      MotionState.pendulumShowInShell.value = true;
+      _setMotionState(pattern, true);
       await MotionBackgroundController.enable();
       await MotionBackgroundController.hideOverlayForInAppExperience();
     } else {
-      MotionState.pendulumShowInShell.value = true;
-      MotionState.pendulumEnabled.value = false;
       await MotionBackgroundController.disable();
+    }
+  }
+
+  // 排他制御と確実なリセットを行うための統合メソッド 
+  Future<void> _handleToggle(String pattern, bool isEnabled) async {
+    setState(() {
+      // スイッチON時はそのパターンを、OFFにされたらデフォルトの 'pendulum' に戻す
+      _selectedPattern = isEnabled ? pattern : 'pendulum';
+      _isTurnedOn = isEnabled;
+    });
+
+    if (isEnabled) {
+      // 背景側に「いま何が選ばれているか」を通知する
+      MotionState.selectedPattern.value = pattern;
+      // 選択されたパターンを渡して背景コントローラーをONにする
+      await _setBackgroundEnabled(true, pattern);
+    } else {
+      // OFFにされたら背景を停止して、デフォルト（振り子）に戻す
+      MotionState.selectedPattern.value = 'pendulum';
+      await _setBackgroundEnabled(false, pattern);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: MotionState.pendulumEnabled,
-      builder: (context, enabled, _) {
-        return ColoredBox(
-          color: MotionPage.backgroundColor,
-          child: SafeArea(
-            bottom: false,
-            child: CustomScrollView(
-              slivers: [
-                const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate.fixed([
-                      _SkeletonCard(
-                        title: '振り子ボール',
-                        enabled: enabled,
-                        preview: enabled
-                            ? const _PendulumActivePreviewPlaceholder()
-                            : const PendulumBallMotion(
-                                period: Duration(milliseconds: 5000),
-                                ballDiameter: 20,
-                              ),
-                        onEnabledChanged: (v) {
-                          unawaited(_setPendulumEnabled(v));
-                        },
-                      ),
-                    ]),
+    return ColoredBox(
+      color: MotionPage.backgroundColor,
+      child: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: [
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate.fixed([
+                  // --- 1枚目のカード：振り子ボール ---
+                  _SkeletonCard(
+                    title: '振り子ボール',
+                    enabled: _isTurnedOn && _selectedPattern == 'pendulum',
+                    preview: (_isTurnedOn && _selectedPattern == 'pendulum')
+                        ? const _ActivePreviewPlaceholder()
+                        : const PendulumBallMotion(
+                            period: Duration(milliseconds: 5000),
+                            ballDiameter: 20,
+                            isPreview: true, // 2つ目のコードの仕様（他の背景ON時もプレビュー維持）を反映
+                          ),
+                    onEnabledChanged: (v) {
+                      unawaited(_handleToggle('pendulum', v));
+                    },
                   ),
-                ),
-              ],
+                  
+                  const SizedBox(height: 16),
+
+                  // --- 2枚目のカード：呼吸するボール ---
+                  _SkeletonCard(
+                    title: '呼吸するボール',
+                    enabled: _isTurnedOn && _selectedPattern == 'breathing_bottom',
+                    preview: (_isTurnedOn && _selectedPattern == 'breathing_bottom')
+                        ? const _ActivePreviewPlaceholder()
+                        : const BreathingBottomBallMotion(
+                            period: Duration(milliseconds: 4000),
+                            minDiameter: 20,
+                            maxDiameter: 40,
+                          ),
+                    onEnabledChanged: (v) {
+                      unawaited(_handleToggle('breathing_bottom', v));
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // --- 3枚目のカード：動くボール ---
+                  _SkeletonCard(
+                    title: '動くボール',
+                    enabled: _isTurnedOn && _selectedPattern == 'moving_bottom',
+                    preview: (_isTurnedOn && _selectedPattern == 'moving_bottom')
+                        ? const _ActivePreviewPlaceholder()
+                        : const MovingBottomBallMotion(
+                            period: Duration(milliseconds: 3000),
+                            minDiameter: 20,
+                            maxDiameter: 100,
+                          ),
+                    onEnabledChanged: (v) {
+                      unawaited(_handleToggle('moving_bottom', v));
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // --- 4枚目のカード：竜巻モーション ---
+                  _SkeletonCard(
+                    title: '竜巻モーション',
+                    enabled: _isTurnedOn && _selectedPattern == 'tornado',
+                    preview: (_isTurnedOn && _selectedPattern == 'tornado')
+                        ? const _ActivePreviewPlaceholder()
+                        : const TornadoTopViewMotion(
+                            period: Duration(milliseconds: 3000),
+                            minScale: 0.3,
+                            maxScale: 1.2,
+                          ),
+                    onEnabledChanged: (v) {
+                      unawaited(_handleToggle('tornado', v));
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // --- 5枚目のカード：おやすみ呼吸ボール ---
+                  _SkeletonCard(
+                    title: 'おやすみ呼吸ボール',
+                    enabled: _isTurnedOn && _selectedPattern == 'sleepy_breathing',
+                    preview: (_isTurnedOn && _selectedPattern == 'sleepy_breathing')
+                        ? const _ActivePreviewPlaceholder()
+                        : const SleepyBreathingBallsMotion(
+                            period: Duration(milliseconds: 12000),
+                            maxDiameter: 80,
+                          ),
+                    onEnabledChanged: (v) {
+                      unawaited(_handleToggle('sleepy_breathing', v));
+                    },
+                  ),
+                  
+                ]),
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// ON 時は全画面／オーバーレイ側で振り子が出るため、カード内では二重にならないプレースホルダ。
-class _PendulumActivePreviewPlaceholder extends StatelessWidget {
-  const _PendulumActivePreviewPlaceholder();
+class _ActivePreviewPlaceholder extends StatelessWidget {
+  const _ActivePreviewPlaceholder();
 
   @override
   Widget build(BuildContext context) {
@@ -85,9 +228,9 @@ class _PendulumActivePreviewPlaceholder extends StatelessWidget {
           Text(
             '表示中',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Colors.blueGrey.shade600,
-              fontWeight: FontWeight.w700,
-            ),
+                  color: Colors.blueGrey.shade600,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ],
       ),
@@ -95,6 +238,7 @@ class _PendulumActivePreviewPlaceholder extends StatelessWidget {
   }
 }
 
+// 2つ目のコードの改良版 SkeletonCard (高さ220での BOTTOM OVERFLOWED 対策等が含まれています)
 class _SkeletonCard extends StatelessWidget {
   const _SkeletonCard({
     required this.title,
@@ -112,7 +256,7 @@ class _SkeletonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 210,
+      height: 220, 
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -147,28 +291,20 @@ class _SkeletonCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color:
-                            (enabled
-                                    ? Colors.green.shade600
-                                    : Colors.grey.shade500)
-                                .withValues(alpha: 0.14),
+                        color: (enabled ? Colors.green.shade600 : Colors.grey.shade500)
+                            .withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color:
-                              (enabled
-                                      ? Colors.green.shade700
-                                      : Colors.grey.shade600)
-                                  .withValues(alpha: 0.22),
+                          color: (enabled ? Colors.green.shade700 : Colors.grey.shade600)
+                              .withValues(alpha: 0.22),
                         ),
                       ),
                       child: Text(
                         enabled ? 'ON' : 'OFF',
-                        style: Theme.of(context).textTheme.labelMedium
+                        style: Theme.of(context).textTheme.labelLarge
                             ?.copyWith(
                               fontWeight: FontWeight.w900,
-                              color: enabled
-                                  ? Colors.green.shade700
-                                  : Colors.grey.shade700,
+                              color: enabled ? Colors.green.shade700 : Colors.grey.shade700,
                             ),
                       ),
                     ),
@@ -192,11 +328,11 @@ class _SkeletonCard extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _SkeletonBar(widthFactor: 0.7),
+                                  const _SkeletonBar(widthFactor: 0.7),
                                   const SizedBox(height: 10),
-                                  _SkeletonBar(widthFactor: 0.95),
+                                  const _SkeletonBar(widthFactor: 0.95),
                                   const SizedBox(height: 10),
-                                  _SkeletonBar(widthFactor: 0.82),
+                                  const _SkeletonBar(widthFactor: 0.82),
                                   const Spacer(),
                                   Row(
                                     children: [
