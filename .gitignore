@@ -48,6 +48,7 @@ app.*.map.json
 # Local data (SQLite dummy data, Chroma DB, raw product data)
 /data/chroma/
 /data/sleep/*.db
+/data/products/
 
 .cursor/
 docs/share/rt/lib/features/fb/application/config/analysis_config.dart
