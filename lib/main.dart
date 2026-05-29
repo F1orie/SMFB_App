@@ -7,11 +7,7 @@ import 'package:smf_app/features/alarm/application/sleep_task_handler.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smf_app/features/motion/presentation/motion_patterns/pendulum_ball_motion.dart';
-import 'package:smf_app/features/motion/presentation/motion_patterns/breathing_bottom_ball_motion.dart';
-import 'package:smf_app/features/motion/presentation/motion_patterns/moving_bottom_ball_motion.dart';
-import 'package:smf_app/features/motion/presentation/motion_patterns/tornado_motion.dart';
-import 'package:smf_app/features/motion/presentation/motion_patterns/sleepy_breathing_balls_motion.dart';
+import 'package:smf_app/features/motion/presentation/motion_pattern_registry.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,12 +94,10 @@ class _OverlayShellState extends State<_OverlayShell> {
   }
 }
 
-Widget _overlayWidget(String pattern) {
-  switch (pattern) {
-    case 'breathing_bottom': return const BreathingBottomBallMotion();
-    case 'moving_bottom':    return const MovingBottomBallMotion();
-    case 'tornado':          return const TornadoTopViewMotion();
-    case 'sleepy_breathing': return const SleepyBreathingBallsMotion();
-    default:                 return const PendulumBallMotion(period: Duration(milliseconds: 5000));
-  }
+Widget _overlayWidget(String patternId) {
+  final def = motionPatterns.firstWhere(
+    (p) => p.id == patternId,
+    orElse: () => motionPatterns.first,
+  );
+  return def.build();
 }
