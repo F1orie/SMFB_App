@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import '../domain/depth_scoring.dart';
 import '../domain/sleep_epoch.dart';
 import '../domain/sleep_note.dart';
 import '../domain/sleep_session.dart';
@@ -7,7 +8,7 @@ import '../infrastructure/sleep_repository.dart';
 
 class DummySleepDataService {
   DummySleepDataService({SleepRepository? repository})
-      : _repository = repository ?? SleepRepository.instance;
+    : _repository = repository ?? SleepRepository.instance;
 
   final SleepRepository _repository;
   final Random _rng = Random();
@@ -15,12 +16,17 @@ class DummySleepDataService {
   Future<String> generateAndSave({DateTime? date}) async {
     final targetDate = date ?? DateTime.now();
 
-    final int sleepHours = 5 + _rng.nextInt(6); // 5〜10時間
+    const int stepMinutes = 5;
+    final int totalMinutes = 465 + _rng.nextInt(61); // 7時間45分〜8時間45分
+    const int onsetLatencyMinutes = 15;
     final startDt = DateTime(targetDate.year, targetDate.month, targetDate.day);
-    final endDt = startDt.add(Duration(hours: sleepHours));
+    final endDt = startDt.add(Duration(minutes: totalMinutes));
 
     final int startAt = startDt.millisecondsSinceEpoch;
     final int endAt = endDt.millisecondsSinceEpoch;
+    final int sleepOnsetAt = startDt
+        .add(const Duration(minutes: onsetLatencyMinutes))
+        .millisecondsSinceEpoch;
 
     final dateKey =
         '${targetDate.year}'
@@ -31,9 +37,10 @@ class DummySleepDataService {
       id: 'dummy_$dateKey',
       startAtEpochMs: startAt,
       endAtEpochMs: endAt,
+      sleepOnsetEpochMs: sleepOnsetAt,
       status: SleepSessionStatus.finished,
-      algoVersion: 'wave_v1',
-      samplingPeriodSec: 60 * 5,
+      algoVersion: DepthScoring.algoVersion,
+      samplingPeriodSec: stepMinutes * 60,
       tzOffsetMin: DateTime.now().timeZoneOffset.inMinutes,
       appVersion: '0.1.0',
       syncState: 'local_only',
@@ -45,16 +52,18 @@ class DummySleepDataService {
     final List<SleepEpoch> epochs = _createWaveEpochs(
       sessionId: session.id,
       startAtEpochMs: startAt,
-      totalMinutes: sleepHours * 60,
+      totalMinutes: totalMinutes,
+      stepMinutes: stepMinutes,
+      onsetLatencyMinutes: onsetLatencyMinutes,
     );
 
     final SleepNote note = SleepNote(
       sessionId: session.id,
       createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
-      memo: 'Demo用ダミーデータ（サイン波生成）',
-      hadAlcohol: _rng.nextBool(),
-      hadCaffeine: _rng.nextBool(),
-      didExercise: _rng.nextBool(),
+      memo: 'Demo用ダミーデータ（睡眠時間は十分だが体動が多く浅い睡眠）',
+      hadAlcohol: false,
+      hadCaffeine: true,
+      didExercise: false,
     );
 
     await _repository.saveEpochs(epochs);
@@ -67,37 +76,65 @@ class DummySleepDataService {
     required String sessionId,
     required int startAtEpochMs,
     required int totalMinutes,
+    required int stepMinutes,
+    required int onsetLatencyMinutes,
   }) {
-    final double baseOffset = 0.40 + _rng.nextDouble() * 0.10;
-    final double amp1 = 0.25 + _rng.nextDouble() * 0.10;
-    final double amp2 = 0.10 + _rng.nextDouble() * 0.15;
-    final double amp3 = 0.05 + _rng.nextDouble() * 0.08;
-    final double freq2 = 3.0 + _rng.nextDouble() * 2.0;
-    final double phase2 = _rng.nextDouble() * 2 * pi;
-    final double phase3 = _rng.nextDouble() * 2 * pi;
-
-    const stepMinutes = 5;
     final List<SleepEpoch> epochs = [];
 
     for (int m = 0; m <= totalMinutes; m += stepMinutes) {
-      final double t = m / totalMinutes;
-      final double raw =
-          baseOffset +
-          amp1 * sin(t * pi) +
-          amp2 * sin(t * pi * freq2 + phase2) -
-          amp3 * sin(t * pi * 7 + phase3);
-      final double depth01 = raw.clamp(0.0, 1.0);
+      final double activityCount = _activityCountForMinute(
+        minute: m,
+        totalMinutes: totalMinutes,
+        onsetLatencyMinutes: onsetLatencyMinutes,
+      );
+      final double scoreDepth = DepthScoring.calculateScoreDepth(activityCount);
 
       epochs.add(
         SleepEpoch(
           sessionId: sessionId,
           tEpochMs: startAtEpochMs + Duration(minutes: m).inMilliseconds,
-          activityCount: 1.0 - depth01,
-          scoreDepth: depth01,
+          activityCount: activityCount,
+          scoreDepth: scoreDepth,
         ),
       );
     }
 
     return epochs;
+  }
+
+  double _activityCountForMinute({
+    required int minute,
+    required int totalMinutes,
+    required int onsetLatencyMinutes,
+  }) {
+    if (minute < onsetLatencyMinutes) {
+      return _jitter(0.68, 0.08); // 就寝直後はまだ動きがある
+    }
+
+    if (minute < onsetLatencyMinutes + 15) {
+      return _jitter(0.16, 0.03); // 入眠判定を成立させるための静かな区間
+    }
+
+    final int minutesAfterOnset = minute - onsetLatencyMinutes;
+    final double nightProgress = minute / totalMinutes;
+    final bool restlessBurst =
+        minutesAfterOnset % 90 < 15 || minutesAfterOnset % 135 >= 120;
+
+    if (restlessBurst) {
+      return _jitter(0.86, 0.07); // 断続的な体動・中途覚醒寄り
+    }
+
+    if (nightProgress > 0.30 &&
+        nightProgress < 0.45 &&
+        minutesAfterOnset % 30 < 10) {
+      return _jitter(0.32, 0.08); // 短い回復的な深睡眠
+    }
+
+    return _jitter(0.62, 0.08); // 時間は眠っているが浅い状態が中心
+  }
+
+  double _jitter(double center, double radius) {
+    final value = center + (_rng.nextDouble() * 2 - 1) * radius;
+    return value.clamp(0.0, 1.0);
   }
 }
