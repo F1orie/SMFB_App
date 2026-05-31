@@ -7,7 +7,7 @@ class SleepDatabase {
   static final SleepDatabase instance = SleepDatabase._();
 
   static const databaseName = 'sleep_data.db';
-  static const databaseVersion = 1;
+  static const databaseVersion = 2;
 
   Database? _database;
 
@@ -25,12 +25,28 @@ class SleepDatabase {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) async {
-        await db.execute('''
+        await _createSchema(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE sleep_sessions ADD COLUMN sleepOnsetEpochMs INTEGER',
+          );
+        }
+      },
+    );
+
+    return _database!;
+  }
+
+  Future<void> _createSchema(Database db) async {
+    await db.execute('''
 CREATE TABLE sleep_sessions (
   id TEXT PRIMARY KEY,
   startAtEpochMs INTEGER NOT NULL,
   endAtEpochMs INTEGER,
   alarmTimeEpochMs INTEGER,
+  sleepOnsetEpochMs INTEGER,
   status TEXT NOT NULL,
   algoVersion TEXT NOT NULL,
   samplingPeriodSec INTEGER NOT NULL,
@@ -39,7 +55,7 @@ CREATE TABLE sleep_sessions (
   syncState TEXT NOT NULL
 )
 ''');
-        await db.execute('''
+    await db.execute('''
 CREATE TABLE sleep_epochs (
   sessionId TEXT NOT NULL,
   tEpochMs INTEGER NOT NULL,
@@ -49,7 +65,7 @@ CREATE TABLE sleep_epochs (
   FOREIGN KEY (sessionId) REFERENCES sleep_sessions(id) ON DELETE CASCADE
 )
 ''');
-        await db.execute('''
+    await db.execute('''
 CREATE TABLE sleep_notes (
   sessionId TEXT PRIMARY KEY,
   createdAtEpochMs INTEGER NOT NULL,
@@ -60,13 +76,9 @@ CREATE TABLE sleep_notes (
   FOREIGN KEY (sessionId) REFERENCES sleep_sessions(id) ON DELETE CASCADE
 )
 ''');
-        await db.execute(
-          'CREATE INDEX idx_sleep_epochs_session_time '
-          'ON sleep_epochs(sessionId, tEpochMs)',
-        );
-      },
+    await db.execute(
+      'CREATE INDEX idx_sleep_epochs_session_time '
+      'ON sleep_epochs(sessionId, tEpochMs)',
     );
-
-    return _database!;
   }
 }

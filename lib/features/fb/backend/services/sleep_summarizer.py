@@ -29,7 +29,7 @@ def summarize_sleep_data(sleep_data: dict[str, Any], sleep_data_source: str) -> 
     ]
 
     if len(sessions) > 1:
-        lines.append(_recent_trend_summary(sessions))
+        lines.append(_recent_trend_summary(sessions, epochs_by_session))
 
     return "\n".join(line for line in lines if line)
 
@@ -48,14 +48,21 @@ def _session_summary(session: dict[str, Any]) -> str:
     start_ms = _as_int(session.get("startAtEpochMs"))
     end_ms = _as_int(session.get("endAtEpochMs"))
     alarm_ms = _as_int(session.get("alarmTimeEpochMs"))
+    onset_ms = _as_int(session.get("sleepOnsetEpochMs"))
     duration = "計測中または不明"
     if start_ms is not None and end_ms is not None:
         duration_min = max(0, (end_ms - start_ms) // 60000)
         duration = f"{duration_min // 60}時間{duration_min % 60}分"
 
+    onset_latency = "不明"
+    if start_ms is not None and onset_ms is not None and onset_ms >= start_ms:
+        latency_min = (onset_ms - start_ms) // 60000
+        onset_latency = f"{latency_min}分"
+
     return (
         f"開始={_format_epoch_ms(start_ms)}, 終了={_format_epoch_ms(end_ms)}, "
         f"アラーム={_format_epoch_ms(alarm_ms)}, 睡眠時間={duration}, "
+        f"入眠={_format_epoch_ms(onset_ms)}, 入眠潜時={onset_latency}, "
         f"状態={session.get('status', '不明')}"
     )
 
@@ -74,13 +81,43 @@ def _epoch_summary(epochs: list[dict[str, Any]]) -> str:
 
     deep_ratio = sum(1 for value in depth_values if value >= 0.8) / len(depth_values)
     shallow_ratio = sum(1 for value in depth_values if value <= 0.5) / len(depth_values)
+    awake_ratio = sum(1 for value in depth_values if value < 0.3) / len(depth_values)
     avg_activity = mean(activity_values) if activity_values else 0.0
+    avg_depth = mean(depth_values)
+    findings = _quality_findings(
+        avg_depth=avg_depth,
+        deep_ratio=deep_ratio,
+        shallow_ratio=shallow_ratio,
+        awake_ratio=awake_ratio,
+        avg_activity=avg_activity,
+    )
     return (
         "睡眠深度データ: "
-        f"{len(epochs)}件, 平均深度={mean(depth_values):.2f}, "
+        f"{len(epochs)}件, 平均深度={avg_depth:.2f}, "
         f"深い睡眠比率={deep_ratio:.0%}, 浅い睡眠比率={shallow_ratio:.0%}, "
-        f"平均体動={avg_activity:.2f}"
+        f"中途覚醒相当比率={awake_ratio:.0%}, 平均体動={avg_activity:.2f}, "
+        f"所見={findings}"
     )
+
+
+def _quality_findings(
+    *,
+    avg_depth: float,
+    deep_ratio: float,
+    shallow_ratio: float,
+    awake_ratio: float,
+    avg_activity: float,
+) -> str:
+    findings = []
+    if avg_depth < 0.6 and shallow_ratio >= 0.5:
+        findings.append("睡眠時間に対して浅い睡眠が多い")
+    if deep_ratio < 0.2:
+        findings.append("深い睡眠が少ない")
+    if awake_ratio >= 0.1:
+        findings.append("中途覚醒相当の区間が目立つ")
+    if avg_activity >= 0.5:
+        findings.append("体動が多め")
+    return "、".join(findings) if findings else "大きな乱れは少ない"
 
 
 def _note_summary(notes: list[dict[str, Any]]) -> str:
@@ -100,21 +137,62 @@ def _note_summary(notes: list[dict[str, Any]]) -> str:
     return f"ライフスタイル記録: {flag_text}, メモ={memo}"
 
 
-def _recent_trend_summary(sessions: list[dict[str, Any]]) -> str:
+def _recent_trend_summary(
+    sessions: list[dict[str, Any]],
+    epochs_by_session: dict[str, list[dict[str, Any]]],
+) -> str:
     durations = []
+    quality_points = []
     for session in sessions:
         start_ms = _as_int(session.get("startAtEpochMs"))
         end_ms = _as_int(session.get("endAtEpochMs"))
         if start_ms is not None and end_ms is not None and end_ms >= start_ms:
             durations.append((end_ms - start_ms) / 60000)
 
+        session_id = session.get("id")
+        depth_values = [
+            value
+            for value in (
+                _as_float(epoch.get("scoreDepth"))
+                for epoch in epochs_by_session.get(str(session_id), [])
+            )
+            if value is not None
+        ]
+        if depth_values:
+            quality_points.append(
+                {
+                    "avg_depth": mean(depth_values),
+                    "shallow_ratio": sum(1 for value in depth_values if value <= 0.5)
+                    / len(depth_values),
+                }
+            )
+
     if not durations:
         return f"直近傾向: {len(sessions)}セッション分、睡眠時間は不明"
 
     avg_min = mean(durations)
+    quality_trend = "睡眠深度変化=判断材料不足"
+    if len(quality_points) >= 2:
+        previous = quality_points[-2]
+        latest = quality_points[-1]
+        depth_delta = latest["avg_depth"] - previous["avg_depth"]
+        shallow_delta = latest["shallow_ratio"] - previous["shallow_ratio"]
+        if depth_delta >= 0.05 and shallow_delta <= 0.05:
+            quality_trend = "睡眠深度変化=良くなっている"
+        elif depth_delta <= -0.05 or shallow_delta >= 0.10:
+            quality_trend = "睡眠深度変化=悪くなっている"
+        else:
+            quality_trend = "睡眠深度変化=横ばい"
+        quality_trend += (
+            f"（前回平均深度={previous['avg_depth']:.2f}, "
+            f"今回平均深度={latest['avg_depth']:.2f}, "
+            f"今回浅い睡眠比率={latest['shallow_ratio']:.0%}）"
+        )
+
     return (
         f"直近傾向: {len(sessions)}セッション分, "
-        f"平均睡眠時間={int(avg_min) // 60}時間{int(avg_min) % 60}分"
+        f"平均睡眠時間={int(avg_min) // 60}時間{int(avg_min) % 60}分, "
+        f"{quality_trend}"
     )
 
 

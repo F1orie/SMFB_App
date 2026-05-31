@@ -16,7 +16,20 @@ class ProductSuggestion:
 ADVICE_TYPE_KEYWORDS = {
     "bedding": ["寝具", "枕", "まくら", "マットレス", "布団", "ふとん", "シーツ"],
     "food": ["食品", "食べ物", "飲み物", "夕食", "カフェイン", "温かい", "栄養"],
-    "routine": ["入浴", "ストレッチ", "ルーティン", "照明", "リラックス", "運動"],
+    "routine": [
+        "入浴",
+        "ストレッチ",
+        "ルーティン",
+        "照明",
+        "リラックス",
+        "運動",
+        "就寝",
+        "寝る前",
+        "習慣",
+        "呼吸",
+        "スマホ",
+        "起床",
+    ],
     "chat": ["睡眠", "改善", "眠り", "寝る", "起床"],
 }
 
@@ -25,7 +38,7 @@ def retrieve_products(
     documents: tuple[ProductDocument, ...],
     query: str,
     advice_type: str,
-    limit: int = 3,
+    limit: int = 1,
 ) -> list[ProductSuggestion]:
     if not documents:
         return []
@@ -75,10 +88,16 @@ def _tokenize(text: str) -> list[str]:
 def _best_excerpt(text: str, terms: set[str], max_length: int = 220) -> str:
     compact = re.sub(r"\s+", " ", text).strip()
     if len(compact) <= max_length:
-        return compact
+        return _remove_price_text(compact)
 
     lower = compact.lower()
     positions = [lower.find(term.lower()) for term in terms if term and lower.find(term.lower()) >= 0]
     start = max(0, min(positions) - 40) if positions else 0
     excerpt = compact[start : start + max_length]
-    return excerpt.strip()
+    return _remove_price_text(excerpt.strip())
+
+
+def _remove_price_text(text: str) -> str:
+    text = re.sub(r"価格（?税込）?", "", text)
+    text = re.sub(r"[¥￥]\s?[\d,]+", "", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
