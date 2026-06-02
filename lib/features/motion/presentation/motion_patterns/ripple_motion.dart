@@ -31,7 +31,7 @@ class _RippleMotionState extends State<RippleMotion>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           return CustomPaint(
             painter: _RipplePainter(_controller.value),
             size: Size.infinite,
@@ -57,7 +57,7 @@ class _RipplePainter extends CustomPainter {
       final opacity = (1.0 - p) * 0.35;
 
       final paint = Paint()
-  ..color = const Color.fromARGB(255, 255, 153, 0).withOpacity(opacity)
+  ..color = const Color.fromARGB(255, 255, 153, 0).withValues(alpha:opacity)
   ..style = PaintingStyle.stroke
   ..strokeWidth = 2.0;
 

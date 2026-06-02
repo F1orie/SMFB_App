@@ -32,7 +32,7 @@ class _JellyfishMotionState extends State<JellyfishMotion>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (_, __) {
+      builder: (_, _) {
         return CustomPaint(
           painter: _JellyfishPainter(_controller.value),
           size: Size.infinite,
@@ -56,7 +56,7 @@ class _JellyfishPainter extends CustomPainter {
         sin(progress * 2 * pi) * size.height * 0.08;
 
     final bodyPaint = Paint()
-      ..color = Colors.white.withOpacity(0.18);
+      ..color = Colors.white.withValues(alpha:0.18);
 
     canvas.drawOval(
       Rect.fromCenter(
@@ -68,7 +68,7 @@ class _JellyfishPainter extends CustomPainter {
     );
 
     final tentaclePaint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
+      ..color = Colors.white.withValues(alpha:0.15)
       ..strokeWidth = 2;
 
     for (int i = -4; i <= 4; i++) {

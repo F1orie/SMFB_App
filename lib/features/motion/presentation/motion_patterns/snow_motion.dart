@@ -32,7 +32,7 @@ class _SnowMotionState extends State<SnowMotion>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           return CustomPaint(
             painter: _SnowPainter(_controller.value),
             size: Size.infinite,
@@ -64,7 +64,7 @@ class _SnowPainter extends CustomPainter {
       final radius = 1.5 + (i % 4) * 0.8;
       final opacity = 0.25 + (i % 5) * 0.08;
 
-      paint.color = Colors.white.withOpacity(opacity);
+      paint.color = Colors.white.withValues(alpha:opacity);
 
       canvas.drawCircle(Offset(x, y), radius, paint);
     }

@@ -33,7 +33,7 @@ class _FlameMotionState extends State<FlameMotion>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           return CustomPaint(
             painter: _FlamePainter(_controller.value),
             size: Size.infinite,
@@ -64,7 +64,7 @@ class _FlamePainter extends CustomPainter {
       width: size.width * 0.30,
       height: size.height * 0.42,
       phase: progress,
-      color: const Color(0xFFFF7A2F).withOpacity(0.62),
+      color: const Color(0xFFFF7A2F).withValues(alpha:0.62),
       blur: 10,
     );
 
@@ -75,7 +75,7 @@ class _FlamePainter extends CustomPainter {
       width: size.width * 0.22,
       height: size.height * 0.34,
       phase: progress + 0.28,
-      color: const Color(0xFFFFC96B).withOpacity(0.78),
+      color: const Color(0xFFFFC96B).withValues(alpha:0.78),
       blur: 8,
     );
 
@@ -86,7 +86,7 @@ class _FlamePainter extends CustomPainter {
       width: size.width * 0.11,
       height: size.height * 0.22,
       phase: progress + 0.53,
-      color: const Color(0xFFFFF0B8).withOpacity(0.78),
+      color: const Color(0xFFFFF0B8).withValues(alpha:0.78),
       blur: 5,
     );
   }
@@ -98,8 +98,8 @@ class _FlamePainter extends CustomPainter {
     final paint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFFFFA24A).withOpacity(0.24),
-          const Color(0xFFFFA24A).withOpacity(0.09),
+          const Color(0xFFFFA24A).withValues(alpha:0.24),
+          const Color(0xFFFFA24A).withValues(alpha:0.09),
           Colors.transparent,
         ],
       ).createShader(
@@ -134,7 +134,7 @@ class _FlamePainter extends CustomPainter {
       final opacity = (1.0 - p).clamp(0.0, 1.0);
       final radius = 1.4 + (i % 4) * 0.6;
 
-      emberPaint.color = const Color(0xFFFFC56D).withOpacity(opacity * 0.55);
+      emberPaint.color = const Color(0xFFFFC56D).withValues(alpha:opacity * 0.55);
       canvas.drawCircle(Offset(x, y), radius, emberPaint);
     }
   }

@@ -32,7 +32,7 @@ class _FireflyMotionState extends State<FireflyMotion>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           return CustomPaint(
             painter: _FireflyPainter(_controller.value),
             size: Size.infinite,
@@ -67,8 +67,8 @@ class _FireflyPainter extends CustomPainter {
       final glowPaint = Paint()
         ..shader = RadialGradient(
           colors: [
-            const Color(0xFFFFF3A3).withOpacity(opacity),
-            const Color(0xFFFFD36B).withOpacity(opacity * 0.35),
+            const Color(0xFFFFF3A3).withValues(alpha:opacity),
+            const Color(0xFFFFD36B).withValues(alpha:opacity * 0.35),
             Colors.transparent,
           ],
         ).createShader(
@@ -81,7 +81,7 @@ class _FireflyPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y), radius * 6, glowPaint);
 
       final corePaint = Paint()
-        ..color = const Color(0xFFFFF8C7).withOpacity(opacity);
+        ..color = const Color(0xFFFFF8C7).withValues(alpha:opacity);
 
       canvas.drawCircle(Offset(x, y), radius, corePaint);
     }

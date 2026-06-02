@@ -33,7 +33,7 @@ class _WaveMotionState extends State<WaveMotion>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           return CustomPaint(
             painter: _WavePainter(_controller.value),
             size: Size.infinite,
@@ -71,7 +71,7 @@ class _WavePainter extends CustomPainter {
     }
 
     final strokePaint = Paint()
-      ..color = Colors.white.withOpacity(0.35)
+      ..color = Colors.white.withValues(alpha:0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;

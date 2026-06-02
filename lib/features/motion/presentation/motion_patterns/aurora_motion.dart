@@ -33,7 +33,7 @@ class _AuroraMotionState extends State<AuroraMotion>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           return CustomPaint(
             painter: _AuroraPainter(_controller.value),
             size: Size.infinite,
@@ -111,7 +111,7 @@ class _AuroraPainter extends CustomPainter {
     }
 
     final paint = Paint()
-      ..color = color.withOpacity(opacity)
+      ..color = color.withValues(alpha: opacity)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
