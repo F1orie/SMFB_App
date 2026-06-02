@@ -8,10 +8,10 @@ class TornadoTopViewMotion extends StatefulWidget {
   const TornadoTopViewMotion({
     super.key,
     // 動きをゆっくりにするため、デフォルトの周期を6000ミリ秒に延長
-    this.period = const Duration(milliseconds: 12000),
+    this.period = const Duration(milliseconds: 10000),
     this.minScale = 0.5,
     this.maxScale = 1.2,
-    this.lineColor = const Color(0xFFBFE6FF),
+    this.lineColor = Colors.orange,
   });
 
   final Duration period;
@@ -48,7 +48,8 @@ class _TornadoTopViewMotionState extends State<TornadoTopViewMotion>
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: const Alignment(0.0, 0.2),
+      // 位置を下中央に変更
+      alignment: Alignment.bottomCenter,
       child: AnimatedBuilder(
         animation: _ctrl,
         builder: (context, _) {
