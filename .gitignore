@@ -1,3 +1,6 @@
+# Secrets / local config
+lib/features/fb/backend/.env
+
 # Miscellaneous
 *.class
 *.log

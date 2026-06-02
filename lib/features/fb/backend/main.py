@@ -16,7 +16,7 @@ from .services.product_retriever import format_product_suggestions, retrieve_pro
 from .services.prompt_builder import PromptBuilder
 from .services.sleep_summarizer import summarize_sleep_data
 
-load_dotenv()
+load_dotenv(override=True)
 
 app = FastAPI(title="SMF RAG Backend")
 app.add_middleware(
