@@ -188,6 +188,14 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
     }
   }
 
+  Future<void> _refreshAdvice(SleepSession session) async {
+    final cacheKey = _normalAdviceCacheKey(session.id);
+    _adviceCache.remove(cacheKey);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(cacheKey);
+    await _runAiAnalysis(session);
+  }
+
   String _normalAdviceCacheKey(String sessionId) =>
       'fb_rag_ai_advice_${SleepPayload.currentVersion}_${_adviceCacheVersion}_$sessionId';
 
@@ -346,13 +354,24 @@ class _FbDashboardPageState extends State<FbDashboardPage> {
 
           const SizedBox(height: 24),
 
-          const Text(
-            'アドバイス',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          Row(
+            children: [
+              const Text(
+                'アドバイス',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+              if (_aiAdvice != null && !_isLoadingAi)
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white38, size: 20),
+                  tooltip: '再分析',
+                  onPressed: () => _refreshAdvice(session),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Container(
