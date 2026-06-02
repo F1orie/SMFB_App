@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:smf_app/features/fb/application/config/analysis_config.dart';
 import 'package:smf_app/features/fb/domain/features/analysis_result.dart';
 import 'package:smf_app/features/fb/infrastructure/log/app_logger.dart';
 import 'package:smf_app/features/fb/infrastructure/payload/sleep_payload.dart';
@@ -8,7 +9,7 @@ import 'package:smf_app/features/fb/infrastructure/payload/sleep_payload.dart';
 class RagAnalyzeClient {
   RagAnalyzeClient({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
-      _baseUrl = baseUrl ?? 'https://dummy-url.example.com';
+      _baseUrl = baseUrl ?? AnalysisConfig.ragBackendBaseUrl;
 
   final http.Client _client;
   final String _baseUrl;
