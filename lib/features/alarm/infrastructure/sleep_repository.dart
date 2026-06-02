@@ -95,7 +95,11 @@ class SleepRepository {
     if (!kIsWeb) {
       await _trySqliteWrite(() => _sqliteRepository.saveEpochs(epochs));
     }
-    await _persistEpochs();
+    // SQLite が正とする環境では epoch を SharedPreferences に書かない
+    // (全件シリアライズによる肥大化を防ぐため)
+    if (_dataSource == _sourceFallback) {
+      await _persistEpochs();
+    }
   }
 
   Future<void> saveNote(SleepNote note) async {

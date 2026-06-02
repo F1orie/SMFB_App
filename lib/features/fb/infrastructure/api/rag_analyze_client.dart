@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:smf_app/features/fb/application/config/analysis_config.dart';
 import 'package:smf_app/features/fb/domain/features/analysis_result.dart';
 import 'package:smf_app/features/fb/infrastructure/log/app_logger.dart';
 import 'package:smf_app/features/fb/infrastructure/payload/sleep_payload.dart';

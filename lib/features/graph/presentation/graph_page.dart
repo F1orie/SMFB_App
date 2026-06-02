@@ -50,10 +50,6 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   int get _sessionCountForDate {
-    final y = _selectedDate.year;
-    final m = _selectedDate.month;
-    final d = _selectedDate.day;
-    if (y == 2026 && m == 4 && (d == 21 || d == 22 || d == 23)) return 1;
     return _sessionsForDate(_selectedDate).length;
   }
 
@@ -76,15 +72,6 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   DailySleepDepthMock _mockByDate(DateTime date) {
-    final y = date.year;
-    final m = date.month;
-    final d = date.day;
-
-    if (y == 2026 && m == 4 && d == 21) return buildMockDailySleepDepth();
-    if (y == 2026 && m == 4 && d == 22) return buildNoSleepMock();
-    if (y == 2026 && m == 4 && d == 23) return buildOversleepMock();
-
-    // リポジトリに保存済みのダミーデータがあれば使う
     final repoMock = _buildFromRepository(date);
     if (repoMock != null) return repoMock;
 
@@ -290,10 +277,7 @@ class _GraphPageState extends State<GraphPage> {
 
     if (confirmed != true || !mounted) return;
 
-    final repo = SleepRepository.instance;
-    await repo.removeSession(sessionId);
-    await repo.removeEpochsForSession(sessionId);
-    await repo.removeNotesForSession(sessionId);
+    await SleepRepository.instance.removeSession(sessionId);
 
     if (mounted) setState(() => _sessionOffset = 0);
   }

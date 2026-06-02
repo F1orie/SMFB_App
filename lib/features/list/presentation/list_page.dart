@@ -78,11 +78,7 @@ class _ListPageState extends State<ListPage> {
 
     if (confirmed != true || !mounted) return;
 
-    final repo = SleepRepository.instance;
-    await repo.removeSession(session.id);
-    await repo.removeEpochsForSession(session.id);
-    await repo.removeNotesForSession(session.id);
-
+    await SleepRepository.instance.removeSession(session.id);
     _loadSessions();
   }
 
@@ -331,10 +327,7 @@ class _ListPageState extends State<ListPage> {
             return confirmed == true;
           },
           onDismissed: (_) async {
-            final repo = SleepRepository.instance;
-            await repo.removeSession(session.id);
-            await repo.removeEpochsForSession(session.id);
-            await repo.removeNotesForSession(session.id);
+            await SleepRepository.instance.removeSession(session.id);
             _loadSessions();
           },
           child: _SessionCard(
