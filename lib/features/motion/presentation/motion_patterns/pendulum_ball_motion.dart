@@ -11,8 +11,8 @@ class PendulumBallMotion extends StatefulWidget {
     super.key,
     this.period = const Duration(milliseconds: 5000),
     this.ballDiameter = 26,
-    this.ballColor = const Color(0xFFBFE6FF),
-    this.glowColor = const Color(0xFF6EC6FF),
+    this.ballColor = const Color(0xFFFFB74D), // 明るいオレンジ
+    this.glowColor = const Color(0xFFFFA726), // オレンジ
     this.maxAngleRad = 0.95,
     this.isPreview = false,
   });
