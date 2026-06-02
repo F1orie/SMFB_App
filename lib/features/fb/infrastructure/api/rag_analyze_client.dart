@@ -9,7 +9,7 @@ import 'package:smf_app/features/fb/infrastructure/payload/sleep_payload.dart';
 class RagAnalyzeClient {
   RagAnalyzeClient({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
-      _baseUrl = baseUrl ?? AnalysisConfig.ragBackendBaseUrl;
+      _baseUrl = baseUrl ?? 'https://dummy-url.example.com';
 
   final http.Client _client;
   final String _baseUrl;

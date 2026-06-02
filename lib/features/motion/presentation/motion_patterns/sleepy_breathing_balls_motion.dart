@@ -17,8 +17,8 @@ class SleepyBreathingBallsMotion extends StatefulWidget {
     // 1つあたりのボールが約7.6秒（吸って吐いての深呼吸ペース）かけてゆっくり明滅します。
     this.period = const Duration(milliseconds: 64000), 
     this.maxDiameter = 120, // 最大サイズ
-    this.ballColor = const Color(0xFFBFE6FF),
-    this.glowColor = const Color(0xFF6EC6FF),
+    this.ballColor = const Color(0xFFFFB74D), // 明るいオレンジ
+    this.glowColor = const Color(0xFFFFA726), // オレンジ
   });
 
   final Duration period;

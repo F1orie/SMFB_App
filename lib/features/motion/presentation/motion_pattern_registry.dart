@@ -5,7 +5,15 @@ import 'motion_patterns/breathing_bottom_ball_motion.dart';
 import 'motion_patterns/moving_bottom_ball_motion.dart';
 import 'motion_patterns/tornado_motion.dart';
 import 'motion_patterns/sleepy_breathing_balls_motion.dart';
-
+import 'motion_patterns/rising_wave_ball_motion.dart';
+import 'motion_patterns/wave_motion.dart';
+import 'motion_patterns/rain_motion.dart';
+import 'motion_patterns/flame_motion.dart';
+import 'motion_patterns/snow_motion.dart';
+import 'motion_patterns/ripple_motion.dart';
+import 'motion_patterns/firefly_motion.dart';
+import 'motion_patterns/jellyfish_motion.dart';
+import 'motion_patterns/aurora_motion.dart';
 // ═══════════════════════════════════════════════════════════════
 //  【新しいモーションパターンの追加手順】
 //
@@ -96,10 +104,73 @@ final List<MotionPatternDef> motionPatterns = [
   ),
 
   // ↓ 新しいパターンをここに追加
+  MotionPatternDef(
+    id: 'rising_wave',      
+    label: '上昇ウェーブ',             
+    build: () => const RisingWaveBallMotion(),
+    buildPreview: () => const RisingWaveBallMotion(
+      period: Duration(milliseconds: 6000),
+      minDiameter: 20,
+      maxDiameter: 50,
+    ),
+  ),
+  MotionPatternDef(
+    id: 'wave',
+    label: '波',
+    build: () => const WaveMotion(),
+    buildPreview: () => const WaveMotion(),
+  ),
+  MotionPatternDef(
+    id: 'rain',
+    label: '雨',
+    build: () => const RainMotion(),
+    buildPreview: () => const RainMotion(),
+  ),
+
+  MotionPatternDef(
+    id: 'flame',
+    label: '炎',
+    build: () => const FlameMotion(),
+    buildPreview: () => const FlameMotion(),
+  ),
+
+  MotionPatternDef(
+    id: 'snow',
+    label: '雪',
+    build: () => const SnowMotion(),
+    buildPreview: () => const SnowMotion(),
+  ),
+  MotionPatternDef(
+    id: 'ripple',
+    label: '波紋',
+    build: () => const RippleMotion(),
+    buildPreview: () => const RippleMotion(),
+  ),
+  MotionPatternDef(
+    id: 'firefly',
+    label: '蛍',
+    build: () => const FireflyMotion(),
+    buildPreview: () => const FireflyMotion(),
+  ),
+
+  MotionPatternDef(
+    id: 'jellyfish',
+    label: 'クラゲ',
+    build: () => const JellyfishMotion(),
+    buildPreview: () => const JellyfishMotion(),
+  ),
+
+  MotionPatternDef(
+    id: 'aurora',
+    label: 'オーロラ',
+    build: () => const AuroraMotion(),
+    buildPreview: () => const AuroraMotion(),
+  ),
+    // ↓ 新しいパターンをここに追加
   // MotionPatternDef(
   //   id: 'your_pattern_id',      // 例: 'wave'
   //   label: '表示名',             // 例: '波'
   //   build: () => const YourPatternWidget(),
   //   buildPreview: () => const YourPatternWidget(size: 'small'),
   // ),
-];
+ ];

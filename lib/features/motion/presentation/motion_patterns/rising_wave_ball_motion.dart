@@ -1,17 +1,19 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// 画面の下中央で大きくなったり小さくなったりする（明滅・呼吸）ボールモーション。
+/// 画面の下から約1/3の高さまで上昇しながら大きくなるボールモーション。
 ///
-/// - 周期: [period]（小→大→小）
+/// - 周期: [period]（下で最小 → 上で最大 → 下で最小）
 /// - サイズ: [minDiameter] から [maxDiameter] の間で変化
-class BreathingBottomBallMotion extends StatefulWidget {
-  const BreathingBottomBallMotion({
+/// - 上昇幅: 画面の高さの [riseRatio] 倍（デフォルトで約1/3）
+class RisingWaveBallMotion extends StatefulWidget {
+  const RisingWaveBallMotion({
     super.key,
     this.period = const Duration(milliseconds: 5000),
     this.minDiameter = 20,
     this.maxDiameter = 100,
-    this.bottomPadding = 16, // 画面下部からの余白
+    this.bottomPadding = 16, // 画面下部からの初期余白
+    this.riseRatio = 0.33, // 画面の約1/3まで上昇
     this.ballColor = const Color(0xFFFFB74D), // 明るいオレンジ
     this.glowColor = const Color(0xFFFFA726), // オレンジ
   });
@@ -20,14 +22,15 @@ class BreathingBottomBallMotion extends StatefulWidget {
   final double minDiameter;
   final double maxDiameter;
   final double bottomPadding;
+  final double riseRatio;
   final Color ballColor;
   final Color glowColor;
 
   @override
-  State<BreathingBottomBallMotion> createState() => _BreathingBottomBallMotionState();
+  State<RisingWaveBallMotion> createState() => _RisingWaveBallMotionState();
 }
 
-class _BreathingBottomBallMotionState extends State<BreathingBottomBallMotion>
+class _RisingWaveBallMotionState extends State<RisingWaveBallMotion>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
@@ -35,7 +38,7 @@ class _BreathingBottomBallMotionState extends State<BreathingBottomBallMotion>
   )..repeat(reverse: true);
 
   @override
-  void didUpdateWidget(covariant BreathingBottomBallMotion oldWidget) {
+  void didUpdateWidget(covariant RisingWaveBallMotion oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.period != widget.period) {
       _ctrl.duration = widget.period;
@@ -63,15 +66,21 @@ class _BreathingBottomBallMotionState extends State<BreathingBottomBallMotion>
           builder: (context, _) {
             final t = curved.value; // 0..1（reverseで往復）
 
-            // tの値に応じて現在の直径を計算
-            final currentDiameter = widget.minDiameter + 
+            // 1. サイズの計算（t=0で最小、t=1で最大）
+            final currentDiameter = widget.minDiameter +
                 (widget.maxDiameter - widget.minDiameter) * t;
 
-            // X軸：画面の中央に配置
+            // 2. X軸：画面の中央に配置
             final x = (w - currentDiameter) / 2;
             
-            // Y軸：画面の下部に配置（bottomPadding分だけ上にずらす）
-            final y = math.max(0.0, h - currentDiameter - widget.bottomPadding);
+            // 3. Y軸：一番下にあるときの基本位置
+            final startY = math.max(0.0, h - currentDiameter - widget.bottomPadding);
+            
+            // 4. 上昇距離の計算（画面の高さ × 上昇割合）
+            final riseDistance = h * widget.riseRatio;
+
+            // 5. 最終的なY座標（tに応じて基本位置から上にスライド）
+            final y = startY - (riseDistance * t);
 
             return Stack(
               fit: StackFit.expand,
@@ -80,7 +89,7 @@ class _BreathingBottomBallMotionState extends State<BreathingBottomBallMotion>
                   left: x.isFinite ? x : 0,
                   top: y.isFinite ? y : 0,
                   child: _Ball(
-                    diameter: currentDiameter, // 計算した現在のサイズを渡す
+                    diameter: currentDiameter,
                     color: widget.ballColor,
                     glowColor: widget.glowColor,
                   ),

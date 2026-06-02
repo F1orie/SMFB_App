@@ -8,12 +8,12 @@ import 'package:flutter/material.dart';
 class MovingBottomBallMotion extends StatefulWidget {
   const MovingBottomBallMotion({
     super.key,
-    this.period = const Duration(milliseconds: 3000), // 少し速くすると往復感がわかりやすいです
+    this.period = const Duration(milliseconds: 6000), // 少し速くすると往復感がわかりやすいです
     this.minDiameter = 20,
     this.maxDiameter = 100,
     this.bottomPadding = 16,
-    this.ballColor = const Color(0xFFBFE6FF),
-    this.glowColor = const Color(0xFF6EC6FF),
+    this.ballColor = const Color(0xFFFFB74D), // 明るいオレンジ
+    this.glowColor = const Color(0xFFFFA726), // オレンジ
   });
 
   final Duration period;
