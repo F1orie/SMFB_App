@@ -58,17 +58,22 @@ void backgroundServiceEntryPoint() => sleepRecordingCallback();
 void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  final initial = prefs.getString('motion_selected_pattern') ?? 'pendulum';
+  final initialPattern = prefs.getString('motion_selected_pattern') ?? 'pendulum';
+  final def = motionPatterns.firstWhere(
+    (p) => p.id == initialPattern, orElse: () => motionPatterns.first);
+  final savedColorInt = prefs.getInt('motion_color_$initialPattern');
+  final initialColor = savedColorInt != null ? Color(savedColorInt) : def.defaultColor;
 
   runApp(MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: _OverlayShell(initialPattern: initial),
+    home: _OverlayShell(initialPattern: initialPattern, initialColor: initialColor),
   ));
 }
 
 class _OverlayShell extends StatefulWidget {
-  const _OverlayShell({required this.initialPattern});
+  const _OverlayShell({required this.initialPattern, required this.initialColor});
   final String initialPattern;
+  final Color initialColor;
 
   @override
   State<_OverlayShell> createState() => _OverlayShellState();
@@ -76,14 +81,25 @@ class _OverlayShell extends StatefulWidget {
 
 class _OverlayShellState extends State<_OverlayShell> {
   late String _pattern;
+  late Color _color;
 
   @override
   void initState() {
     super.initState();
     _pattern = widget.initialPattern;
-    // アプリ側から shareData() で送られてくるパターン名を受信して即時切り替え
+    _color = widget.initialColor;
+    // アプリ側から shareData() で "patternId|colorARGB" 形式で受信
     FlutterOverlayWindow.overlayListener.listen((data) {
-      if (data is String && mounted) setState(() => _pattern = data);
+      if (data is String && mounted) {
+        final parts = data.split('|');
+        setState(() {
+          _pattern = parts[0];
+          if (parts.length > 1) {
+            final colorInt = int.tryParse(parts[1]);
+            if (colorInt != null) _color = Color(colorInt);
+          }
+        });
+      }
     });
   }
 
@@ -91,16 +107,15 @@ class _OverlayShellState extends State<_OverlayShell> {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: _overlayWidget(_pattern),
+      child: _overlayWidget(_pattern, _color),
     );
   }
 }
 
-Widget _overlayWidget(String patternId) {
+Widget _overlayWidget(String patternId, Color color) {
   final def = motionPatterns.firstWhere(
     (p) => p.id == patternId,
     orElse: () => motionPatterns.first,
   );
-  final color = MotionState.color[def.id]?.value ?? def.defaultColor;
   return def.build(color);
 }

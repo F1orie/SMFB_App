@@ -131,7 +131,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
     await MotionBackgroundController.showOverlayWhenAppBackgrounded();
     final selectedPattern = prefs.getString('motion_selected_pattern') ?? motionPatterns.first.id;
-    await FlutterOverlayWindow.shareData(selectedPattern);
+    final colorValue = MotionState.color[selectedPattern]?.value.toARGB32()
+        ?? motionPatterns.firstWhere((p) => p.id == selectedPattern, orElse: () => motionPatterns.first).defaultColor.toARGB32();
+    await FlutterOverlayWindow.shareData('$selectedPattern|$colorValue');
   }
 
   @override
