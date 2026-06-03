@@ -101,5 +101,6 @@ Widget _overlayWidget(String patternId) {
     (p) => p.id == patternId,
     orElse: () => motionPatterns.first,
   );
-  return def.build();
+  final color = MotionState.color[def.id]?.value ?? def.defaultColor;
+  return def.build(color);
 }
