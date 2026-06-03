@@ -2,7 +2,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class FlameMotion extends StatefulWidget {
-  const FlameMotion({super.key});
+  const FlameMotion({
+    super.key,
+    this.color = const Color(0xFFFF7A2F),
+  });
+
+  final Color color;
 
   @override
   State<FlameMotion> createState() => _FlameMotionState();
@@ -35,7 +40,7 @@ class _FlameMotionState extends State<FlameMotion>
         animation: _controller,
         builder: (_, _) {
           return CustomPaint(
-            painter: _FlamePainter(_controller.value),
+            painter: _FlamePainter(_controller.value, widget.color),
             size: Size.infinite,
           );
         },
@@ -45,9 +50,10 @@ class _FlameMotionState extends State<FlameMotion>
 }
 
 class _FlamePainter extends CustomPainter {
-  const _FlamePainter(this.progress);
+  const _FlamePainter(this.progress, this.baseColor);
 
   final double progress;
+  final Color baseColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -57,38 +63,18 @@ class _FlamePainter extends CustomPainter {
     _drawGlow(canvas, size, centerX, baseY);
     _drawEmbers(canvas, size, centerX, baseY);
 
-    _drawFlameLayer(
-      canvas,
-      centerX: centerX,
-      baseY: baseY,
-      width: size.width * 0.30,
-      height: size.height * 0.42,
-      phase: progress,
-      color: const Color(0xFFFF7A2F).withValues(alpha:0.62),
-      blur: 10,
-    );
+    final midColor = Color.lerp(baseColor, Colors.yellow, 0.4)!;
+    final tipColor = Color.lerp(baseColor, Colors.white, 0.6)!;
 
-    _drawFlameLayer(
-      canvas,
-      centerX: centerX,
-      baseY: baseY + 10,
-      width: size.width * 0.22,
-      height: size.height * 0.34,
-      phase: progress + 0.28,
-      color: const Color(0xFFFFC96B).withValues(alpha:0.78),
-      blur: 8,
-    );
-
-    _drawFlameLayer(
-      canvas,
-      centerX: centerX,
-      baseY: baseY + 22,
-      width: size.width * 0.11,
-      height: size.height * 0.22,
-      phase: progress + 0.53,
-      color: const Color(0xFFFFF0B8).withValues(alpha:0.78),
-      blur: 5,
-    );
+    _drawFlameLayer(canvas, centerX: centerX, baseY: baseY,
+        width: size.width * 0.30, height: size.height * 0.42,
+        phase: progress, color: baseColor.withValues(alpha: 0.62), blur: 10);
+    _drawFlameLayer(canvas, centerX: centerX, baseY: baseY + 10,
+        width: size.width * 0.22, height: size.height * 0.34,
+        phase: progress + 0.28, color: midColor.withValues(alpha: 0.78), blur: 8);
+    _drawFlameLayer(canvas, centerX: centerX, baseY: baseY + 22,
+        width: size.width * 0.11, height: size.height * 0.22,
+        phase: progress + 0.53, color: tipColor.withValues(alpha: 0.78), blur: 5);
   }
 
   void _drawGlow(Canvas canvas, Size size, double centerX, double baseY) {
@@ -98,8 +84,8 @@ class _FlamePainter extends CustomPainter {
     final paint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFFFFA24A).withValues(alpha:0.24),
-          const Color(0xFFFFA24A).withValues(alpha:0.09),
+          baseColor.withValues(alpha: 0.24),
+          baseColor.withValues(alpha: 0.09),
           Colors.transparent,
         ],
       ).createShader(
@@ -134,7 +120,7 @@ class _FlamePainter extends CustomPainter {
       final opacity = (1.0 - p).clamp(0.0, 1.0);
       final radius = 1.4 + (i % 4) * 0.6;
 
-      emberPaint.color = const Color(0xFFFFC56D).withValues(alpha:opacity * 0.55);
+      emberPaint.color = baseColor.withValues(alpha: opacity * 0.55);
       canvas.drawCircle(Offset(x, y), radius, emberPaint);
     }
   }
@@ -213,6 +199,6 @@ class _FlamePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FlamePainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress || oldDelegate.baseColor != baseColor;
   }
 }

@@ -7,6 +7,7 @@ import 'package:smf_app/features/alarm/application/sleep_task_handler.dart';
 import 'package:smf_app/features/alarm/infrastructure/sleep_repository.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smf_app/features/motion/application/motion_state.dart';
 import 'package:smf_app/features/motion/presentation/motion_pattern_registry.dart';
 
 void main() async {
@@ -18,6 +19,7 @@ void main() async {
   }
 
   await SleepRepository.instance.init();
+  await MotionState.loadColors();
   runApp(const SmfApp());
 }
 

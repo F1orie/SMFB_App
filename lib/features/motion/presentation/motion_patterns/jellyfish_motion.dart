@@ -2,7 +2,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class JellyfishMotion extends StatefulWidget {
-  const JellyfishMotion({super.key});
+  const JellyfishMotion({
+    super.key,
+    this.color = Colors.white,
+  });
+
+  final Color color;
 
   @override
   State<JellyfishMotion> createState() => _JellyfishMotionState();
@@ -15,7 +20,6 @@ class _JellyfishMotionState extends State<JellyfishMotion>
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 8),
@@ -34,7 +38,7 @@ class _JellyfishMotionState extends State<JellyfishMotion>
       animation: _controller,
       builder: (_, _) {
         return CustomPaint(
-          painter: _JellyfishPainter(_controller.value),
+          painter: _JellyfishPainter(_controller.value, widget.color),
           size: Size.infinite,
         );
       },
@@ -43,53 +47,41 @@ class _JellyfishMotionState extends State<JellyfishMotion>
 }
 
 class _JellyfishPainter extends CustomPainter {
-  const _JellyfishPainter(this.progress);
+  const _JellyfishPainter(this.progress, this.color);
 
   final double progress;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final centerX = size.width / 2;
+    final y = size.height * 0.5 + sin(progress * 2 * pi) * size.height * 0.08;
 
-    final y =
-        size.height * 0.5 +
-        sin(progress * 2 * pi) * size.height * 0.08;
-
-    final bodyPaint = Paint()
-      ..color = Colors.white.withValues(alpha:0.18);
-
+    final bodyPaint = Paint()..color = color.withValues(alpha: 0.18);
     canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(centerX, y),
-        width: 120,
-        height: 80,
-      ),
+      Rect.fromCenter(center: Offset(centerX, y), width: 120, height: 80),
       bodyPaint,
     );
 
     final tentaclePaint = Paint()
-      ..color = Colors.white.withValues(alpha:0.15)
+      ..color = color.withValues(alpha: 0.15)
       ..strokeWidth = 2;
 
     for (int i = -4; i <= 4; i++) {
       final startX = centerX + i * 12;
-
       final path = Path();
       path.moveTo(startX, y + 30);
-
       for (int j = 1; j <= 5; j++) {
         path.lineTo(
           startX + sin(progress * 2 * pi + j + i) * 8,
           y + 30 + j * 25,
         );
       }
-
       canvas.drawPath(path, tentaclePaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _JellyfishPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
+  bool shouldRepaint(covariant _JellyfishPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }

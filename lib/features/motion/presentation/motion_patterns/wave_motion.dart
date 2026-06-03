@@ -2,7 +2,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class WaveMotion extends StatefulWidget {
-  const WaveMotion({super.key});
+  const WaveMotion({
+    super.key,
+    this.color = Colors.white,
+  });
+
+  final Color color;
 
   @override
   State<WaveMotion> createState() => _WaveMotionState();
@@ -15,7 +20,6 @@ class _WaveMotionState extends State<WaveMotion>
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
@@ -35,7 +39,7 @@ class _WaveMotionState extends State<WaveMotion>
         animation: _controller,
         builder: (_, _) {
           return CustomPaint(
-            painter: _WavePainter(_controller.value),
+            painter: _WavePainter(_controller.value, widget.color),
             size: Size.infinite,
           );
         },
@@ -45,42 +49,29 @@ class _WaveMotionState extends State<WaveMotion>
 }
 
 class _WavePainter extends CustomPainter {
-  const _WavePainter(this.progress);
+  const _WavePainter(this.progress, this.color);
 
   final double progress;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final waveLine = Path();
-
     for (double x = 0; x <= size.width; x++) {
-      final y =
-          size.height * 0.88 +
-          sin(
-                (x / size.width * 2 * pi) +
-                    (progress * 2 * pi),
-              ) *
-              size.height *
-              0.04;
-
-      if (x == 0) {
-        waveLine.moveTo(x, y);
-      } else {
-        waveLine.lineTo(x, y);
-      }
+      final y = size.height * 0.88 +
+          sin((x / size.width * 2 * pi) + (progress * 2 * pi)) *
+              size.height * 0.04;
+      if (x == 0) { waveLine.moveTo(x, y); } else { waveLine.lineTo(x, y); }
     }
-
     final strokePaint = Paint()
-      ..color = Colors.white.withValues(alpha:0.35)
+      ..color = color.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
-
     canvas.drawPath(waveLine, strokePaint);
   }
 
   @override
-  bool shouldRepaint(covariant _WavePainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
+  bool shouldRepaint(covariant _WavePainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }

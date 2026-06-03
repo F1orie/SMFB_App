@@ -2,7 +2,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class RainMotion extends StatefulWidget {
-  const RainMotion({super.key});
+  const RainMotion({
+    super.key,
+    this.color = Colors.white,
+  });
+
+  final Color color;
 
   @override
   State<RainMotion> createState() => _RainMotionState();
@@ -17,7 +22,6 @@ class _RainMotionState extends State<RainMotion>
   @override
   void initState() {
     super.initState();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
@@ -36,7 +40,7 @@ class _RainMotionState extends State<RainMotion>
       animation: _controller,
       builder: (_, _) {
         return CustomPaint(
-          painter: _RainPainter(_controller.value),
+          painter: _RainPainter(_controller.value, widget.color),
           size: Size.infinite,
         );
       },
@@ -46,27 +50,20 @@ class _RainMotionState extends State<RainMotion>
 
 class _RainPainter extends CustomPainter {
   final double progress;
+  final Color color;
 
-  _RainPainter(this.progress);
+  _RainPainter(this.progress, this.color);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha:0.4)
+      ..color = color.withValues(alpha: 0.4)
       ..strokeWidth = 2;
 
     for (int i = 0; i < 40; i++) {
       final x = (i * 25.0) % size.width;
-
-      final y =
-          ((progress * size.height * 1.5) + (i * 40)) %
-          (size.height + 40);
-
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(x, y + 15),
-        paint,
-      );
+      final y = ((progress * size.height * 1.5) + (i * 40)) % (size.height + 40);
+      canvas.drawLine(Offset(x, y), Offset(x, y + 15), paint);
     }
   }
 

@@ -182,7 +182,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                     if (MotionState.enabled[p.id]?.value == true &&
                         MotionState.showInShell[p.id]?.value == true)
                       Positioned.fill(
-                        child: IgnorePointer(child: p.build()),
+                        child: IgnorePointer(
+                          child: ValueListenableBuilder<Color>(
+                            valueListenable: MotionState.color[p.id]!,
+                            builder: (_, color, _) => p.build(color),
+                          ),
+                        ),
                       ),
                 ],
               ),
