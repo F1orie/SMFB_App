@@ -198,8 +198,8 @@ class _AlarmPageState extends State<AlarmPage> {
   }
 
   Future<void> _ringAlarm() async {
+    if (!mounted) return;
     await _alarmSoundService.play();
-
     if (!mounted) return;
 
     showDialog(
@@ -378,10 +378,7 @@ class _SleepResultSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const style = TextStyle(fontSize: 12, color: Colors.white70);
-    final onset = result.session.sleepOnsetEpochMs;
-    final latencyMin = onset != null
-        ? ((onset - result.session.startAtEpochMs) / 1000 / 60).floor()
-        : null;
+    final latencyMin = result.metrics.sleepOnsetLatencyMin;
 
     return Column(
       children: [

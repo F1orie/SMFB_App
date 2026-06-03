@@ -19,7 +19,7 @@ class SleepSession {
   final int startAtEpochMs;
   final int? endAtEpochMs;
   final int? alarmTimeEpochMs;
-  /// 入眠時刻（scoreDepth≥0.8 が3エポック連続した先頭のエポック時刻）
+  /// 入眠時刻（scoreDepth≥0.5 が3エポック連続した先頭のエポック時刻）
   final int? sleepOnsetEpochMs;
   final SleepSessionStatus status;
   final String algoVersion;

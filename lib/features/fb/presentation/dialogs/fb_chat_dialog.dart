@@ -38,12 +38,16 @@ class _FbChatDialogState extends State<FbChatDialog> {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_prefsKey);
     if (raw == null) return;
-    final list = (jsonDecode(raw) as List<dynamic>)
-        .map((e) => Map<String, String>.from(e as Map))
-        .toList();
-    if (mounted) {
-      setState(() => _messages.addAll(list));
-      _scrollToBottom();
+    try {
+      final list = (jsonDecode(raw) as List<dynamic>)
+          .map((e) => Map<String, String>.from(e as Map))
+          .toList();
+      if (mounted) {
+        setState(() => _messages.addAll(list));
+        _scrollToBottom();
+      }
+    } catch (_) {
+      await prefs.remove(_prefsKey);
     }
   }
 

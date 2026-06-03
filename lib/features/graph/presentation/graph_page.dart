@@ -57,14 +57,18 @@ class _GraphPageState extends State<GraphPage> {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_kActionSelectionsKey);
     if (raw == null || !mounted) return;
-    final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    setState(() {
-      _selectedActionsByDate
-        ..clear()
-        ..addAll(
-          decoded.map((k, v) => MapEntry(k, Set<String>.from(v as List))),
-        );
-    });
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      setState(() {
+        _selectedActionsByDate
+          ..clear()
+          ..addAll(
+            decoded.map((k, v) => MapEntry(k, Set<String>.from(v as List))),
+          );
+      });
+    } catch (_) {
+      await prefs.remove(_kActionSelectionsKey);
+    }
   }
 
   DailySleepDepthMock get _mock {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:smf_app/features/fb/application/config/analysis_config.dart';
@@ -62,12 +63,18 @@ class RagAnalyzeClient {
             ? responseBody.substring(0, 300)
             : responseBody;
         throw Exception('HTTP ${response.statusCode}: $snippet');
-      } catch (e) {
+      } on SocketException catch (e) {
+        // 接続エラーのみリトライ対象
         if (attempt < 2) {
+          AppLogger.d('RAG API 接続エラー - ${attempt + 1}回目リトライ: $e');
           await Future.delayed(const Duration(seconds: 3));
           continue;
         }
         AppLogger.e('RAG API 通信エラー', e);
+        rethrow;
+      } catch (e) {
+        // タイムアウト・JSONパース失敗など即エラー
+        AppLogger.e('RAG API エラー', e);
         rethrow;
       }
     }
