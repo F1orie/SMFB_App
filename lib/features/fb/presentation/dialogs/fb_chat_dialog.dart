@@ -293,10 +293,9 @@ class _FbChatDialogState extends State<FbChatDialog> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 14,
-            backgroundColor: Colors.blue.shade100,
-            child: const Icon(Icons.auto_awesome, size: 16, color: Colors.blue),
+            backgroundImage: AssetImage('assets/images/ai_avatar.png'),
           ),
           const SizedBox(width: 6),
           Container(
