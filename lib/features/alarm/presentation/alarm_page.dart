@@ -350,13 +350,14 @@ class _AlarmPageState extends State<AlarmPage> {
                   _SleepResultSummary(result: _lastResult!),
                   const SizedBox(height: 8),
                 ],
-                TextButton.icon(
-                  onPressed: _createDummyData,
-                  style: TextButton.styleFrom(foregroundColor: Colors.white24),
-                  icon: const Icon(Icons.data_object, size: 14),
-                  label: const Text('ダミーデータ作成',
-                      style: TextStyle(fontSize: 11)),
-                ),
+                if (kDebugMode)
+                  TextButton.icon(
+                    onPressed: _createDummyData,
+                    style: TextButton.styleFrom(foregroundColor: Colors.white24),
+                    icon: const Icon(Icons.data_object, size: 14),
+                    label: const Text('ダミーデータ作成',
+                        style: TextStyle(fontSize: 11)),
+                  ),
                 const SizedBox(height: 6),
                 const _AdBannerPlaceholder(),
                 const SizedBox(height: 8),
