@@ -6,6 +6,8 @@ import '../domain/sleep_note.dart';
 import '../domain/sleep_session.dart';
 import '../infrastructure/sleep_repository.dart';
 
+enum _SleepPattern { light, deep }
+
 class DummySleepDataService {
   DummySleepDataService({SleepRepository? repository})
     : _repository = repository ?? SleepRepository.instance;
@@ -16,16 +18,22 @@ class DummySleepDataService {
   Future<String> generateAndSave({DateTime? date}) async {
     final targetDate = date ?? DateTime.now();
 
+    // ランダムでパターンを決定
+    final pattern = _rng.nextBool() ? _SleepPattern.deep : _SleepPattern.light;
+
     const int stepMinutes = 5;
-    final int totalMinutes = 465 + _rng.nextInt(61); // 7時間45分〜8時間45分
-    const int onsetLatencyMinutes = 15;
+    final int totalMinutes = 450 + _rng.nextInt(60); // 7時間30分〜8時間30分
+    final int onsetLatencyMinutes = pattern == _SleepPattern.deep
+        ? 10 + _rng.nextInt(10)   // 深い睡眠: 入眠潜時 10〜19分
+        : 15 + _rng.nextInt(15);  // 浅い睡眠: 入眠潜時 15〜29分
+
     final startDt = DateTime(targetDate.year, targetDate.month, targetDate.day);
     final endDt = startDt.add(Duration(minutes: totalMinutes));
 
     final int startAt = startDt.millisecondsSinceEpoch;
     final int endAt = endDt.millisecondsSinceEpoch;
     final int sleepOnsetAt = startDt
-        .add(const Duration(minutes: onsetLatencyMinutes))
+        .add(Duration(minutes: onsetLatencyMinutes))
         .millisecondsSinceEpoch;
 
     final dateKey =
@@ -55,21 +63,36 @@ class DummySleepDataService {
       totalMinutes: totalMinutes,
       stepMinutes: stepMinutes,
       onsetLatencyMinutes: onsetLatencyMinutes,
+      pattern: pattern,
     );
 
-    final SleepNote note = SleepNote(
-      sessionId: session.id,
+    final SleepNote note = _buildNote(session.id, pattern);
+
+    await _repository.saveEpochs(epochs);
+    await _repository.saveNote(note);
+
+    return session.id;
+  }
+
+  SleepNote _buildNote(String sessionId, _SleepPattern pattern) {
+    if (pattern == _SleepPattern.deep) {
+      return SleepNote(
+        sessionId: sessionId,
+        createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+        memo: 'Demo用ダミーデータ（深い睡眠がしっかり取れた良質な睡眠）',
+        hadAlcohol: false,
+        hadCaffeine: false,
+        didExercise: true,
+      );
+    }
+    return SleepNote(
+      sessionId: sessionId,
       createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
       memo: 'Demo用ダミーデータ（睡眠時間は十分だが体動が多く浅い睡眠）',
       hadAlcohol: false,
       hadCaffeine: true,
       didExercise: false,
     );
-
-    await _repository.saveEpochs(epochs);
-    await _repository.saveNote(note);
-
-    return session.id;
   }
 
   List<SleepEpoch> _createWaveEpochs({
@@ -78,15 +101,22 @@ class DummySleepDataService {
     required int totalMinutes,
     required int stepMinutes,
     required int onsetLatencyMinutes,
+    required _SleepPattern pattern,
   }) {
     final List<SleepEpoch> epochs = [];
 
     for (int m = 0; m <= totalMinutes; m += stepMinutes) {
-      final double activityCount = _activityCountForMinute(
-        minute: m,
-        totalMinutes: totalMinutes,
-        onsetLatencyMinutes: onsetLatencyMinutes,
-      );
+      final double activityCount = pattern == _SleepPattern.deep
+          ? _deepActivityCount(
+              minute: m,
+              totalMinutes: totalMinutes,
+              onsetLatencyMinutes: onsetLatencyMinutes,
+            )
+          : _lightActivityCount(
+              minute: m,
+              totalMinutes: totalMinutes,
+              onsetLatencyMinutes: onsetLatencyMinutes,
+            );
       final double scoreDepth = DepthScoring.calculateScoreDepth(activityCount);
 
       epochs.add(
@@ -102,7 +132,8 @@ class DummySleepDataService {
     return epochs;
   }
 
-  double _activityCountForMinute({
+  // ── 浅い睡眠パターン ─────────────────────────────────────────
+  double _lightActivityCount({
     required int minute,
     required int totalMinutes,
     required int onsetLatencyMinutes,
@@ -131,6 +162,48 @@ class DummySleepDataService {
     }
 
     return _jitter(0.62, 0.08); // 時間は眠っているが浅い状態が中心
+  }
+
+  // ── 深い睡眠パターン ─────────────────────────────────────────
+  // 90分周期の睡眠サイクルを模倣。前半に深睡眠が集中する正常なパターン。
+  double _deepActivityCount({
+    required int minute,
+    required int totalMinutes,
+    required int onsetLatencyMinutes,
+  }) {
+    if (minute < onsetLatencyMinutes) {
+      return _jitter(0.55, 0.08); // 就寝直後（浅い睡眠パターンより落ち着いている）
+    }
+
+    if (minute < onsetLatencyMinutes + 10) {
+      return _jitter(0.12, 0.03); // 入眠判定を確実に成立させる区間
+    }
+
+    final int minutesAfterOnset = minute - onsetLatencyMinutes;
+    final double nightProgress = minute / totalMinutes;
+
+    // 90分周期内の位置（0.0〜1.0）
+    final int cycleMinute = minutesAfterOnset % 90;
+    final double cyclePos = cycleMinute / 90.0;
+
+    // サイクル境界（覚醒に近い浅い睡眠）
+    if (cyclePos < 0.08 || cyclePos > 0.92) {
+      return _jitter(0.45, 0.08);
+    }
+
+    // 前半の夜（深睡眠が多い）
+    if (nightProgress < 0.50) {
+      if (cyclePos >= 0.15 && cyclePos <= 0.55) {
+        return _jitter(0.10, 0.04); // 深睡眠（ほぼ静止）
+      }
+      return _jitter(0.28, 0.06); // 浅めだが良質
+    }
+
+    // 後半の夜（レム睡眠・浅い睡眠が多くなる）
+    if (cyclePos >= 0.25 && cyclePos <= 0.55) {
+      return _jitter(0.22, 0.05); // やや深め
+    }
+    return _jitter(0.38, 0.07); // 浅めのレム睡眠寄り
   }
 
   double _jitter(double center, double radius) {
