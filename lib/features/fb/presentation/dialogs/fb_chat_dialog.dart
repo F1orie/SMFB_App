@@ -210,10 +210,16 @@ class _FbChatDialogState extends State<FbChatDialog> {
                   controller: _textCtrl,
                   enabled: !_isSending,
                   maxLines: null,
+                  style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: '質問を入力...',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
