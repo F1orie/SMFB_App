@@ -79,8 +79,8 @@ def _epoch_summary(epochs: list[dict[str, Any]]) -> str:
     if not depth_values:
         return f"睡眠深度データ: {len(epochs)}件"
 
-    deep_ratio = sum(1 for value in depth_values if value >= 0.8) / len(depth_values)
-    shallow_ratio = sum(1 for value in depth_values if value <= 0.5) / len(depth_values)
+    deep_ratio = sum(1 for value in depth_values if value >= 0.7) / len(depth_values)
+    shallow_ratio = sum(1 for value in depth_values if 0.3 <= value < 0.7) / len(depth_values)
     awake_ratio = sum(1 for value in depth_values if value < 0.3) / len(depth_values)
     avg_activity = mean(activity_values) if activity_values else 0.0
     avg_depth = mean(depth_values)
