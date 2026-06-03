@@ -57,6 +57,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   int _fbRebuildKey = 0;
   int _graphRebuildKey = 0;
+  int _listRebuildKey = 0;
   DateTime? _graphTargetDate;
   SleepSession? _fbTargetSession;
 
@@ -84,10 +85,18 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _mainTab.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (_mainTab.index == 2) {
+      setState(() => _listRebuildKey++);
+    }
   }
 
   @override
   void dispose() {
+    _mainTab.removeListener(_onTabChanged);
     WidgetsBinding.instance.removeObserver(this);
     _mainTab.dispose();
     super.dispose();
@@ -156,6 +165,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                         initialDate: _graphTargetDate,
                       ),
                       ListPage(
+                        key: ValueKey(_listRebuildKey),
                         onNavigateToGraph: _navigateToGraphDate,
                         onNavigateToFb: _navigateToFbSession,
                       ),
