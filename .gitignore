@@ -1,6 +1,9 @@
 # Secrets / local config
 lib/features/fb/backend/.env
 
+# Windows ショートカットファイル
+*.url
+
 # Miscellaneous
 *.class
 *.log
