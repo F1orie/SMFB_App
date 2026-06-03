@@ -254,14 +254,9 @@ class _FbChatDialogState extends State<FbChatDialog> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
-            CircleAvatar(
+            const CircleAvatar(
               radius: 14,
-              backgroundColor: Colors.blue.shade100,
-              child: const Icon(
-                Icons.auto_awesome,
-                size: 16,
-                color: Colors.blue,
-              ),
+              backgroundImage: AssetImage('assets/images/ai_avatar.png'),
             ),
             const SizedBox(width: 6),
           ],
