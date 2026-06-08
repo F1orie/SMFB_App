@@ -2,15 +2,18 @@
 //
 // セットアップ手順:
 //   1. このファイルを同じディレクトリに analysis_config.dart としてコピー
-//   2. geminiApiKey に Google AI Studio で取得した API キーを設定
+//   2. Gemini API キーはバックエンドの .env に設定（Flutter 側には不要）
 //      取得先: https://aistudio.google.com/app/apikey
+//      設定先: lib/features/fb/backend/.env の GEMINI_API_KEY=
 //
 class AnalysisConfig {
   static const double alertThreshold = 0.7;
+
+  /// RAG バックエンドのベース URL
+  /// 起動時に --dart-define=RAG_BACKEND_BASE_URL=http://... で指定する。
+  /// 未指定の場合は http://127.0.0.1:8000 を使用。
   static const String ragBackendBaseUrl = String.fromEnvironment(
     'RAG_BACKEND_BASE_URL',
     defaultValue: 'http://127.0.0.1:8000',
   );
-
-  static const String geminiApiKey = ''; // ここに自分の API キーを貼り付ける
 }
