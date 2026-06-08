@@ -287,7 +287,8 @@ class _AlarmPageState extends State<AlarmPage> {
           ),
           child: SafeArea(
             bottom: false,
-            child: Column(
+            child: SingleChildScrollView(
+              child: Column(
               children: [
                 const SizedBox(height: 20),
                 // ── ステータスバッジ ─────────────────────────
@@ -317,8 +318,7 @@ class _AlarmPageState extends State<AlarmPage> {
                 ),
                 const SizedBox(height: 28),
                 // ── 時刻ピッカー ─────────────────────────────
-                Expanded(
-                  child: Center(
+                Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 32),
                       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -338,7 +338,6 @@ class _AlarmPageState extends State<AlarmPage> {
                       ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 28),
                 // ── メインボタン ─────────────────────────────
                 _CalmButton(
@@ -364,7 +363,8 @@ class _AlarmPageState extends State<AlarmPage> {
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import 'package:smf_app/app/main.dart';
@@ -12,6 +13,7 @@ import 'package:smf_app/features/motion/presentation/motion_pattern_registry.dar
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   if (!kIsWeb) {
     FlutterForegroundTask.initCommunicationPort();
